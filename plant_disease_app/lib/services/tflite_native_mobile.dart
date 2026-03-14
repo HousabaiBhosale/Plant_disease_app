@@ -31,9 +31,10 @@ class TFLiteNative {
     for (int y = 0; y < 224; y++) {
       for (int x = 0; x < 224; x++) {
         final pixel = resizedImage.getPixel(x, y);
-        buffer[pixelIndex++] = pixel.r / 1.0;
-        buffer[pixelIndex++] = pixel.g / 1.0;
-        buffer[pixelIndex++] = pixel.b / 1.0;
+        // Normalize pixel values to [0.0, 1.0] to match Python training exactly
+        buffer[pixelIndex++] = pixel.r / 255.0;
+        buffer[pixelIndex++] = pixel.g / 255.0;
+        buffer[pixelIndex++] = pixel.b / 255.0;
       }
     }
 
