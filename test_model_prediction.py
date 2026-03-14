@@ -39,7 +39,7 @@ disease_advice = {
 }
 
 # Path to test image
-img_path = "Grape.png"
+img_path = "apple.png"
 
 
 if not os.path.exists(img_path):
