@@ -180,9 +180,7 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
                 Text(
                   isUnknown 
                     ? 'Try taking a clearer photo from a different angle with more light.' 
-                    : disease.toLowerCase().contains('healthy') 
-                      ? 'Your plant looks great! Keep up the good work with regular irrigation.' 
-                      : 'Isolate the affected plant and consult an expert for proper treatment.',
+                    : _getDoctorAdvice(disease),
                   style: GoogleFonts.outfit(color: isUnknown ? Colors.orange[800] : Colors.green[900], fontSize: 14),
                 ),
               ],
@@ -191,6 +189,31 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
         ],
       ),
     );
+  }
+
+  String _getDoctorAdvice(String diseaseRaw) {
+    final String d = diseaseRaw.toLowerCase();
+    if (d.contains('healthy')) {
+      return 'Your plant looks great! Keep up the good work with regular irrigation and monitoring.';
+    } else if (d.contains('blight')) {
+      return 'Remove infected leaves. Apply a copper-based fungicide. Avoid overhead watering to keep foliage dry.';
+    } else if (d.contains('rust')) {
+      return 'Prune infected parts. Apply sulfur or neem oil. Ensure good air circulation around the plant.';
+    } else if (d.contains('spot') || d.contains('scorch')) {
+      return 'Remove spotted leaves and ensure good air circulation. Apply a broad-spectrum fungicide if it spreads.';
+    } else if (d.contains('mildew') || d.contains('mold')) {
+      return 'Improve air circulation, prune crowded branches, and apply a sulfur-based fungicide or neem oil.';
+    } else if (d.contains('scab')) {
+      return 'Remove dropped leaves and apply protective fungicides. Water at the base instead of overhead.';
+    } else if (d.contains('virus')) {
+      return 'Viruses are incurable. Remove and destroy the infected plant permanently. Control disease-carrying aphids/insects.';
+    } else if (d.contains('rot')) {
+      return 'Reduce watering immediately. Improve soil drainage and remove affected plant parts to prevent spread.';
+    } else if (d.contains('mite')) {
+      return 'Isolate plant. Apply insecticidal soap or horticultural oil. Keep humidity higher around the plant if possible.';
+    } else {
+      return 'Isolate the affected plant to prevent potential spread and consult a local agricultural expert for proper treatment.';
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {
