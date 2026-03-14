@@ -39,6 +39,7 @@ class TFLiteService {
       print(stacktrace.toString());
       _isLoaded = false;
     }
+  }
 
   Future<Map<String, dynamic>> predict(String imagePath) async {
     print('--- PREDICTION REQUESTED ---');
