@@ -30,7 +30,9 @@ class TFLiteService {
       // 2. Load Labels
       final jsonString = await rootBundle.loadString('assets/class_indices.json');
       final Map<String, dynamic> rawIndices = json.decode(jsonString);
-      _classIndices = rawIndices.map((key, value) => MapEntry(int.parse(key), value.toString()));
+      
+      // The JSON format is {"Apple___Apple_scab": 0}, so the value is the index and the key is the label
+      _classIndices = rawIndices.map((key, value) => MapEntry(int.parse(value.toString()), key));
       
       _isLoaded = true;
     } catch (e, stacktrace) {
