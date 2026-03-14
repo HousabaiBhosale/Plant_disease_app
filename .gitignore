@@ -1,0 +1,21 @@
+# Environments
+venv/
+.env
+__pycache__/
+*.pyc
+
+# Data
+PlantVillage/
+*.zip
+*.tar
+*.gz
+
+# Large Models (optional if >100MB, but yours is small)
+# *.keras
+
+# System
+.DS_Store
+Thumbs.db
+
+# Reports
+backup_checkpoint/
