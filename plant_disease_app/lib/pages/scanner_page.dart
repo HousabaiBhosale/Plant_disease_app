@@ -56,9 +56,12 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
       }
       final XFile tappedImage = await _controller!.takePicture();
       final result = await _tfliteService.predict(tappedImage.path);
+      debugPrint('\n--- PREDICTION RESULT OUTPUT ---');
+      debugPrint('$result');
+      debugPrint('--------------------------------\n');
       if (mounted) _showResultPanel(result);
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('Error in capture: $e');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -82,9 +85,12 @@ class _ScannerPageState extends State<ScannerPage> with SingleTickerProviderStat
         return;
       }
       final result = await _tfliteService.predict(image.path);
+      debugPrint('\n--- PREDICTION RESULT OUTPUT ---');
+      debugPrint('$result');
+      debugPrint('--------------------------------\n');
       if (mounted) _showResultPanel(result);
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('Error in gallery: $e');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
