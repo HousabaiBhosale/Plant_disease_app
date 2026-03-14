@@ -41,7 +41,18 @@ class TFLiteService {
     }
 
   Future<Map<String, dynamic>> predict(String imagePath) async {
-    if (!_isLoaded) return {'error': 'Model not loaded'};
+    print('--- PREDICTION REQUESTED ---');
+    print('Checking model status...');
+    
+    if (!_isLoaded) {
+      print('Model not loaded yet. Attempting to load now...');
+      await loadModel();
+      
+      if (!_isLoaded) {
+        print('FATAL: Model completely failed to load.');
+        return {'error': 'Model failed to load during prediction request'};
+      }
+    }
 
     if (kIsWeb) {
       // Mock prediction for Web Preview
