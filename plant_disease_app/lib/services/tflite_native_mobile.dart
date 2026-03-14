@@ -42,9 +42,10 @@ class TFLiteNative {
       for (int y = 0; y < 224; y++) {
         for (int x = 0; x < 224; x++) {
           final pixel = resizedImage.getPixel(x, y);
-          buffer[pixelIndex++] = pixel.r / 255.0;
-          buffer[pixelIndex++] = pixel.g / 255.0;
-          buffer[pixelIndex++] = pixel.b / 255.0;
+          // EfficientNet expects pixel inputs in the range [0, 255]
+          buffer[pixelIndex++] = pixel.r.toDouble();
+          buffer[pixelIndex++] = pixel.g.toDouble();
+          buffer[pixelIndex++] = pixel.b.toDouble();
         }
       }
       print('Image converted to Float32 array successfully');
