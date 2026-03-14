@@ -33,10 +33,12 @@ class TFLiteService {
       _classIndices = rawIndices.map((key, value) => MapEntry(int.parse(key), value.toString()));
       
       _isLoaded = true;
-    } catch (e) {
-      // Error handling removed for lint
+    } catch (e, stacktrace) {
+      print('!!! ERROR LOADING MODEL OR LABELS !!!');
+      print(e.toString());
+      print(stacktrace.toString());
+      _isLoaded = false;
     }
-  }
 
   Future<Map<String, dynamic>> predict(String imagePath) async {
     if (!_isLoaded) return {'error': 'Model not loaded'};
