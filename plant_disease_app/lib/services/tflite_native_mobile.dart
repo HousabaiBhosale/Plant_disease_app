@@ -70,6 +70,14 @@ class TFLiteNative {
 
     const double strictThreshold = 50.0;
     const double gapThreshold = 5.0;
+    
+    // DEBUG: Print exactly what the model sees
+    print('\n--- TFLITE DEBUG INFO ---');
+    print('Raw Predicted Class: $className');
+    print('Confidence: $confidence%');
+    print('Probability Gap: $probGap%');
+    print('-------------------------\n');
+
     bool isUnknown = (confidence < strictThreshold) || (probGap < gapThreshold);
 
     return {
