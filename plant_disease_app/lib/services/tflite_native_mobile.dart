@@ -16,27 +16,46 @@ class TFLiteNative {
 
   static Future<Map<String, dynamic>> runInference(
       Interpreter interpreter, String imagePath, Map<int, String> classIndices) async {
-    
-    final imageFile = File(imagePath);
-    final imageBytes = await imageFile.readAsBytes();
-    img.Image? originalImage = img.decodeImage(imageBytes);
-    if (originalImage == null) return {'error': 'Failed to decode image'};
+    print('\n--- TFLITE PROCESSING START ---');
+    print('Loading image from: $imagePath');
 
-    img.Image resizedImage = img.copyResize(originalImage, width: 224, height: 224);
-
-    var input = Float32List(1 * 224 * 224 * 3);
-    var buffer = Float32List.view(input.buffer);
-    int pixelIndex = 0;
-
-    for (int y = 0; y < 224; y++) {
-      for (int x = 0; x < 224; x++) {
-        final pixel = resizedImage.getPixel(x, y);
-        // Normalize pixel values to [0.0, 1.0] to match Python training exactly
-        buffer[pixelIndex++] = pixel.r / 255.0;
-        buffer[pixelIndex++] = pixel.g / 255.0;
-        buffer[pixelIndex++] = pixel.b / 255.0;
+    try {
+      final imageFile = File(imagePath);
+      final imageBytes = await imageFile.readAsBytes();
+      print('Bytes loaded: ${imageBytes.length}');
+      
+      img.Image? originalImage = img.decodeImage(imageBytes);
+      if (originalImage == null) {
+        print('ERROR: Failed to decode image bytes into image.dart Image object');
+        return {'error': 'Failed to decode image format'};
       }
+      print('Image decoded successfully. Original size: ${originalImage.width}x${originalImage.height}');
+
+      img.Image resizedImage = img.copyResize(originalImage, width: 224, height: 224);
+      print('Image resized to 224x224');
+
+      var input = Float32List(1 * 224 * 224 * 3);
+      var buffer = Float32List.view(input.buffer);
+      int pixelIndex = 0;
+
+      for (int y = 0; y < 224; y++) {
+        for (int x = 0; x < 224; x++) {
+          final pixel = resizedImage.getPixel(x, y);
+          buffer[pixelIndex++] = pixel.r / 255.0;
+          buffer[pixelIndex++] = pixel.g / 255.0;
+          buffer[pixelIndex++] = pixel.b / 255.0;
+        }
+      }
+      print('Image converted to Float32 array successfully');
+    } catch (e, stacktrace) {
+      print('!!! CRITICAL TFLITE PREPROCESSING ERROR !!!');
+      print(e.toString());
+      print(stacktrace.toString());
+      return {'error': 'Image processing crash: $e'};
     }
+
+    try {
+      print('Running TFLite Interpreter...');
 
     var output = List<double>.filled(classIndices.length, 0).reshape([1, classIndices.length]);
     interpreter.run(input.reshape([1, 224, 224, 3]), output);
@@ -54,39 +73,45 @@ class TFLiteNative {
 
     double confidence = maxScore * 100;
     List<double> sortedScores = List<double>.from(scores)..sort((a, b) => b.compareTo(a));
-    double top1 = sortedScores[0];
-    double top2 = sortedScores[1];
-    double probGap = (top1 - top2) * 100;
+      double top1 = sortedScores[0];
+      double top2 = sortedScores[1];
+      double probGap = (top1 - top2) * 100;
 
-    String className = classIndices[maxIndex] ?? 'Unknown';
-    String plant = 'Unknown';
-    String disease = 'Unknown';
+      String className = classIndices[maxIndex] ?? 'Unknown';
+      String plant = 'Unknown';
+      String disease = 'Unknown';
 
-    if (className.contains('___')) {
-      final parts = className.split('___');
-      plant = parts[0];
-      disease = parts[1].replaceAll('_', ' ');
+      if (className.contains('___')) {
+        final parts = className.split('___');
+        plant = parts[0];
+        disease = parts[1].replaceAll('_', ' ');
+      }
+
+      const double strictThreshold = 50.0;
+      const double gapThreshold = 5.0;
+      
+      // DEBUG: Print exactly what the model sees
+      print('\n--- TFLITE DEBUG INFO ---');
+      print('Raw Predicted Class: $className');
+      print('Confidence: $confidence%');
+      print('Probability Gap: $probGap%');
+      print('-------------------------\n');
+
+      bool isUnknown = (confidence < strictThreshold) || (probGap < gapThreshold);
+
+      return {
+        'plant': plant,
+        'disease': disease,
+        'confidence': confidence,
+        'probGap': probGap,
+        'isUnknown': isUnknown,
+        'rawLabel': className,
+      };
+    } catch (e, stacktrace) {
+      print('!!! CRITICAL TFLITE INFERENCE ERROR !!!');
+      print(e.toString());
+      print(stacktrace.toString());
+      return {'error': 'Inference crash: $e'};
     }
-
-    const double strictThreshold = 50.0;
-    const double gapThreshold = 5.0;
-    
-    // DEBUG: Print exactly what the model sees
-    print('\n--- TFLITE DEBUG INFO ---');
-    print('Raw Predicted Class: $className');
-    print('Confidence: $confidence%');
-    print('Probability Gap: $probGap%');
-    print('-------------------------\n');
-
-    bool isUnknown = (confidence < strictThreshold) || (probGap < gapThreshold);
-
-    return {
-      'plant': plant,
-      'disease': disease,
-      'confidence': confidence,
-      'probGap': probGap,
-      'isUnknown': isUnknown,
-      'rawLabel': className,
-    };
   }
 }
