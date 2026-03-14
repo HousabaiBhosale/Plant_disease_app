@@ -19,6 +19,8 @@ class TFLiteNative {
     print('\n--- TFLITE PROCESSING START ---');
     print('Loading image from: $imagePath');
 
+    var input = Float32List(1 * 224 * 224 * 3);
+
     try {
       final imageFile = File(imagePath);
       final imageBytes = await imageFile.readAsBytes();
@@ -34,7 +36,6 @@ class TFLiteNative {
       img.Image resizedImage = img.copyResize(originalImage, width: 224, height: 224);
       print('Image resized to 224x224');
 
-      var input = Float32List(1 * 224 * 224 * 3);
       var buffer = Float32List.view(input.buffer);
       int pixelIndex = 0;
 
