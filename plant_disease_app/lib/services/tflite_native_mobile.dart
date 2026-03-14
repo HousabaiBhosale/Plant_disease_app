@@ -68,8 +68,8 @@ class TFLiteNative {
       disease = parts[1].replaceAll('_', ' ');
     }
 
-    const double strictThreshold = 85.0;
-    const double gapThreshold = 15.0;
+    const double strictThreshold = 50.0;
+    const double gapThreshold = 5.0;
     bool isUnknown = (confidence < strictThreshold) || (probGap < gapThreshold);
 
     return {
