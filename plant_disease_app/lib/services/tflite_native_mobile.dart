@@ -89,8 +89,9 @@ class TFLiteNative {
         disease = parts[1].replaceAll('_', ' ');
       }
 
-      const double strictThreshold = 50.0;
-      const double gapThreshold = 5.0;
+      // stricter thresholds since EfficientNet can be overconfident on random objects
+      const double strictThreshold = 65.0; // Needs at least 65% confidence
+      const double gapThreshold = 10.0;   // Needs at least a 10% gap from the 2nd best guess
       
       // DEBUG: Print exactly what the model sees
       print('\n--- TFLITE DEBUG INFO ---');
@@ -100,6 +101,11 @@ class TFLiteNative {
       print('-------------------------\n');
 
       bool isUnknown = (confidence < strictThreshold) || (probGap < gapThreshold);
+
+      if (isUnknown) {
+        plant = 'Not a Plant / Unrecognized';
+        disease = 'N/A';
+      }
 
       return {
         'plant': plant,

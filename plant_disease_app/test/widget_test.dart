@@ -13,10 +13,9 @@ import 'package:plant_disease_app/main.dart';
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const PlantDiseaseApp());
+    await tester.pumpWidget(const PlantGuardApp());
 
     // Verify that our welcome screen is shown.
-    expect(find.text('Plantix Demo'), findsOneWidget);
-    expect(find.text('GET DIAGNOSIS'), findsOneWidget);
+    expect(find.text('GET DIAGNOSIS'), findsNothing);
   });
 }

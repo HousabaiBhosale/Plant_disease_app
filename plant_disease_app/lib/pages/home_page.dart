@@ -1,82 +1,228 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import '../services/prediction_history_service.dart';
+import '../services/profile_service.dart';
+import '../services/auth_service.dart';
 import 'scanner_page.dart';
+import 'notification_settings_page.dart';
+import 'library_page.dart';
+import 'login_page.dart';
 
 // ── Colour tokens ──────────────────────────────────────────────
 class AppColors {
-  static const g900 = Color(0xFF0D3320);
-  static const g800 = Color(0xFF144D30);
-  static const g700 = Color(0xFF1A6B40);
-  static const g600 = Color(0xFF1E8049);
-  static const g500 = Color(0xFF25A05C);
-  static const g400 = Color(0xFF3DBF73);
-  static const g300 = Color(0xFF6ED498);
-  static const g200 = Color(0xFFA8E8C0);
-  static const g100 = Color(0xFFD6F5E4);
-  static const g50  = Color(0xFFEDFAF3);
-  static const bg   = Color(0xFFF4FAF6);
-  static const card = Colors.white;
-  static const text = Color(0xFF0D2418);
+  static const g900    = Color(0xFF0D3320);
+  static const g800    = Color(0xFF144D30);
+  static const g700    = Color(0xFF1A6B40);
+  static const g600    = Color(0xFF1E8049);
+  static const g500    = Color(0xFF25A05C);
+  static const g400    = Color(0xFF3DBF73);
+  static const g300    = Color(0xFF6ED498);
+  static const g200    = Color(0xFFA8E8C0);
+  static const g100    = Color(0xFFD6F5E4);
+  static const g50     = Color(0xFFEDFAF3);
+  static const bg      = Color(0xFFF0F8F3);
+  static const card    = Colors.white;
+  static const text    = Color(0xFF0D2418);
   static const textMid  = Color(0xFF3D5A47);
   static const textSoft = Color(0xFF7A9A84);
   static const border   = Color(0xFFD4EAD8);
   static const blue     = Color(0xFF2D84C8);
-  static const amber    = Color(0xFFF5A623);
   static const red      = Color(0xFFE03C3C);
   static const orange   = Color(0xFFF07A28);
+  static const amber    = Color(0xFFF5A623);
 }
 
-// ── Main shell with bottom nav ─────────────────────────────────
+class ScanRecord {
+  final String id;
+  final String plantName;
+  final String diseaseName;
+  final double confidence;
+  final String severity;
+  final DateTime scannedAt;
+
+  ScanRecord({
+    required this.id,
+    required this.plantName,
+    required this.diseaseName,
+    required this.confidence,
+    required this.severity,
+    required this.scannedAt,
+  });
+
+  String get emoji {
+    final p = plantName.toLowerCase();
+    if (p.contains('tomato'))     return '🍅';
+    if (p.contains('corn'))       return '🌽';
+    if (p.contains('apple'))      return '🍎';
+    if (p.contains('grape'))      return '🍇';
+    if (p.contains('potato'))     return '🥔';
+    if (p.contains('pepper'))     return '🫑';
+    if (p.contains('peach'))      return '🍑';
+    if (p.contains('cherry'))     return '🍒';
+    if (p.contains('strawberry')) return '🍓';
+    if (p.contains('orange'))     return '🍊';
+    return '🌿';
+  }
+
+  String get severityLabel => severity;
+  String get imagePath => '';
+
+  String get timeAgo {
+    final diff = DateTime.now().difference(scannedAt);
+    if (diff.inDays > 0)    return '${diff.inDays}d ago';
+    if (diff.inHours > 0)   return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'Just now';
+  }
+
+  bool get isHealthy => diseaseName.toLowerCase() == 'healthy';
+}
+
+// ── App shell ──────────────────────────────────────────────────
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  int _idx = 0;
+  late AnimationController _fabAnim;
 
-  final List<Widget> _pages = const [
-    _HomeTab(),
-    _LibraryTab(),
-    _CommunityTab(),
-    _ProfileTab(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fabAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
+  }
+
+  @override
+  void dispose() { _fabAnim.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: _pages[_currentIndex],
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ScannerPage()),
+    final pages = [
+      const _HomeTab(),
+      const LibraryPage(),
+      const _ProfileTab(),
+    ];
+
+    return PopScope(
+      canPop: _idx == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _idx != 0) setState(() => _idx = 0);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+          child: KeyedSubtree(key: ValueKey(_idx), child: pages[_idx]),
         ),
-        backgroundColor: AppColors.g600,
-        shape: const CircleBorder(),
-        elevation: 6,
-        child: const Icon(Icons.camera_alt, color: Colors.white, size: 26),
+        floatingActionButton: ScaleTransition(
+          scale: CurvedAnimation(parent: _fabAnim, curve: Curves.elasticOut),
+          child: _PulseFAB(
+            onTap: () => Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, a, b) => const ScannerPage(),
+                transitionsBuilder: (_, a, b, child) => SlideTransition(
+                  position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                      .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+                  child: child,
+                ),
+              ),
+            ).then((_) => setState(() {})),
+          ),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: _BottomBar(idx: _idx, onTap: (i) {
+          setState(() {
+            _idx = i;
+            _fabAnim.forward(from: 0.6);
+          });
+        }),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        color: AppColors.card,
-        elevation: 12,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(icon: Icons.home_rounded,    label: 'Home',      index: 0, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
-              _NavItem(icon: Icons.menu_book_rounded, label: 'Library',  index: 1, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
-              const SizedBox(width: 48),
-              _NavItem(icon: Icons.people_rounded,  label: 'Community', index: 2, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
-              _NavItem(icon: Icons.person_rounded,  label: 'Profile',   index: 3, current: _currentIndex, onTap: (i) => setState(() => _currentIndex = i)),
+    );
+  }
+}
+
+// ── Pulsing FAB ────────────────────────────────────────────────
+class _PulseFAB extends StatefulWidget {
+  final VoidCallback onTap;
+  const _PulseFAB({required this.onTap});
+  @override
+  State<_PulseFAB> createState() => _PulseFABState();
+}
+
+class _PulseFABState extends State<_PulseFAB> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl  = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 1.0, end: 1.12).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _pulse,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 62, height: 62,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [AppColors.g500, AppColors.g700],
+            ),
+            boxShadow: [
+              BoxShadow(color: AppColors.g600.withValues(alpha: 0.5), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(color: AppColors.g300.withValues(alpha: 0.3), blurRadius: 30, offset: const Offset(0, 0)),
             ],
           ),
+          child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 28),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bottom navigation bar ──────────────────────────────────────
+class _BottomBar extends StatelessWidget {
+  final int idx;
+  final ValueChanged<int> onTap;
+  const _BottomBar({required this.idx, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(color: AppColors.g900.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, -4)),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 68,
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            _NavItem(icon: Icons.home_rounded,      label: 'Home',    idx: 0, cur: idx, onTap: onTap),
+            _NavItem(icon: Icons.menu_book_rounded,  label: 'Library', idx: 1, cur: idx, onTap: onTap),
+            const SizedBox(width: 62),
+            _NavItem(icon: Icons.person_rounded,     label: 'Profile', idx: 2, cur: idx, onTap: onTap),
+          ]),
         ),
       ),
     );
@@ -84,448 +230,546 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final int index;
-  final int current;
+  final IconData icon; final String label; final int idx, cur;
   final ValueChanged<int> onTap;
-  const _NavItem({required this.icon, required this.label, required this.index, required this.current, required this.onTap});
+  const _NavItem({required this.icon, required this.label, required this.idx, required this.cur, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final active = index == current;
+    final active = idx == cur;
     return GestureDetector(
-      onTap: () => onTap(index),
+      onTap: () => onTap(idx),
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 22, color: active ? AppColors.g600 : AppColors.textSoft),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.nunito(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: active ? AppColors.g600 : AppColors.textSoft,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── HOME TAB ───────────────────────────────────────────────────
-class _HomeTab extends StatelessWidget {
-  const _HomeTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Hero header
-          _HomeHero(context: context),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Weather bar
-                _WeatherBar(),
-                const SizedBox(height: 20),
-                // Recent scans
-                _SectionHeader(title: 'Recent Scans', onSeeAll: () {}),
-                const SizedBox(height: 10),
-                _ScanCard(emoji: '🍇', plant: 'Grape',        disease: 'Black Rot',   time: 'Today, 8:14 AM',  severity: 'High'),
-                _ScanCard(emoji: '🍅', plant: 'Tomato',       disease: 'Early Blight', time: 'Yesterday',      severity: 'Medium'),
-                _ScanCard(emoji: '🌽', plant: 'Corn (Maize)', disease: 'Healthy',      time: '2 days ago',     severity: 'Healthy'),
-                const SizedBox(height: 20),
-                // Community preview
-                _SectionHeader(title: 'Community Posts', onSeeAll: () {}),
-                const SizedBox(height: 10),
-                _CommunityPostCard(
-                  avatar: '👨🌾',
-                  name: 'Arjun Patil',
-                  time: '2 hrs ago · Maharashtra',
-                  badge: 'Farmer',
-                  body: 'My tomato plants show yellow spots on older leaves. Scanned — says early blight. Anyone tried neem oil?',
-                  likes: 24,
-                  comments: 8,
-                ),
-                const SizedBox(height: 20),
-                // Tips
-                _SectionHeader(title: 'Crop Tips', onSeeAll: () {}),
-                const SizedBox(height: 10),
-                _TipsRow(),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeHero extends StatelessWidget {
-  final BuildContext context;
-  const _HomeHero({required this.context});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.g800, AppColors.g600, AppColors.g400],
-          stops: [0.0, 0.55, 1.0],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(22, 52, 22, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Container(
-                  width: 34, height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(child: Text('🌿', style: TextStyle(fontSize: 18))),
-                ),
-                const SizedBox(width: 8),
-                Text('PlantGuard', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 19, color: Colors.white)),
-              ]),
-              Row(children: [
-                _HeroIconBtn(icon: Icons.wb_sunny_rounded, onTap: () {}),
-                const SizedBox(width: 8),
-                _HeroIconBtn(icon: Icons.notifications_rounded, onTap: () {}),
-              ]),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text('Good morning, Farmer 👋', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.75))),
-          const SizedBox(height: 4),
-          RichText(
-            text: TextSpan(
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 24, color: Colors.white, height: 1.2),
-              children: const [
-                TextSpan(text: 'Detect diseases.\n'),
-                TextSpan(text: 'Protect your crops.', style: TextStyle(color: AppColors.g200)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Scan CTA
-          GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScannerPage())),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 20, offset: const Offset(0, 4))],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 46, height: 46,
-                    decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: Text('📷', style: TextStyle(fontSize: 22))),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Scan a Leaf Now', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)),
-                      Text('Point camera · instant AI diagnosis', style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
-                    ]),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.g600, size: 24),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          // Stats row
-          Row(
-            children: [
-              _StatPill(value: '38',      label: 'Diseases'),
-              const SizedBox(width: 8),
-              _StatPill(value: '14',      label: 'Crops'),
-              const SizedBox(width: 8),
-              _StatPill(value: 'Offline', label: 'Works'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroIconBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _HeroIconBtn({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36, height: 36,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          shape: BoxShape.circle,
+          color: active ? AppColors.g50 : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
         ),
-        child: Icon(icon, color: Colors.white, size: 18),
-      ),
-    );
-  }
-}
-
-class _StatPill extends StatelessWidget {
-  final String value;
-  final String label;
-  const _StatPill({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(children: [
-          Text(value, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 17, color: Colors.white)),
-          Text(label, style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.7))),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          AnimatedScale(
+            scale: active ? 1.15 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: Icon(icon, size: 22, color: active ? AppColors.g600 : AppColors.textSoft),
+          ),
+          const SizedBox(height: 3),
+          Text(label, style: GoogleFonts.nunito(
+            fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+            color: active ? AppColors.g600 : AppColors.textSoft)),
         ]),
       ),
     );
   }
 }
 
-class _WeatherBar extends StatelessWidget {
+// ════════════════════════════════════════════════════════════════
+// HOME TAB
+// ════════════════════════════════════════════════════════════════
+class _HomeTab extends StatefulWidget {
+  const _HomeTab();
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2D84C8), Color(0xFF1A5FA8)]),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          const Text('⛅', style: TextStyle(fontSize: 32)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('28°C', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 22, color: Colors.white)),
-              Text('Partly Cloudy', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
-              Text('📍 Bengaluru, KA', style: GoogleFonts.nunitoSans(fontSize: 11, color: Colors.white.withValues(alpha: 0.65))),
-            ]),
-          ),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('💧 68% Humidity', style: GoogleFonts.nunitoSans(fontSize: 11, color: Colors.white.withValues(alpha: 0.8))),
-            Text('💨 12 km/h Wind', style: GoogleFonts.nunitoSans(fontSize: 11, color: Colors.white.withValues(alpha: 0.65))),
-          ]),
-        ],
-      ),
-    );
-  }
+  State<_HomeTab> createState() => _HomeTabState();
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final VoidCallback onSeeAll;
-  const _SectionHeader({required this.title, required this.onSeeAll});
+class _HomeTabState extends State<_HomeTab> {
+  List<ScanRecord> _scans = [];
+  bool _loading = true;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
-        GestureDetector(
-          onTap: onSeeAll,
-          child: Text('See all', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g600)),
-        ),
-      ],
-    );
-  }
-}
+  void initState() { super.initState(); _loadScans(); }
 
-class _ScanCard extends StatelessWidget {
-  final String emoji;
-  final String plant;
-  final String disease;
-  final String time;
-  final String severity;
-  const _ScanCard({required this.emoji, required this.plant, required this.disease, required this.time, required this.severity});
-
-  Color get _badgeBg {
-    switch (severity) {
-      case 'High':    return const Color(0xFFFEE2E2);
-      case 'Medium':  return const Color(0xFFFEF3C7);
-      case 'Low':     return const Color(0xFFD1FAE5);
-      default:        return AppColors.g100;
+  Future<void> _loadScans() async {
+    try {
+      final raw = await PredictionHistoryService.getHistory(limit: 5);
+      final List<ScanRecord> scans = raw.map((r) => ScanRecord(
+        id: r['id'],
+        plantName: r['plant_name']?.isEmpty == false ? r['plant_name'] : 'Unknown',
+        diseaseName: r['predicted_disease'].split('___').last.replaceAll('_', ' '),
+        confidence: r['confidence'] * 100,
+        severity: r['confidence'] > 0.85 ? 'High' : 'Medium',
+        scannedAt: DateTime.parse(r['created_at']).toLocal(),
+      )).toList();
+      if (mounted) setState(() { _scans = scans; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Color get _badgeFg {
-    switch (severity) {
-      case 'High':    return const Color(0xFFB91C1C);
-      case 'Medium':  return const Color(0xFF92400E);
-      case 'Low':     return const Color(0xFF065F46);
-      default:        return AppColors.g700;
-    }
-  }
-
-  static const g700 = Color(0xFF1A6B40);
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.09), blurRadius: 12, offset: const Offset(0, 2))],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Container(
-            width: 58, height: 58,
-            decoration: BoxDecoration(color: AppColors.g100, borderRadius: BorderRadius.circular(10)),
-            child: Center(child: Text(emoji, style: const TextStyle(fontSize: 26))),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(plant,   style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text)),
-              Text(disease, style: GoogleFonts.nunitoSans(fontSize: 12, color: AppColors.textMid)),
-              Text(time,    style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft)),
-            ]),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-            decoration: BoxDecoration(color: _badgeBg, borderRadius: BorderRadius.circular(20)),
-            child: Text(severity, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: _badgeFg)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CommunityPostCard extends StatelessWidget {
-  final String avatar, name, time, badge, body;
-  final int likes, comments;
-  const _CommunityPostCard({required this.avatar, required this.name, required this.time, required this.badge, required this.body, required this.likes, required this.comments});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.09), blurRadius: 12, offset: const Offset(0, 2))],
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(color: AppColors.g200, shape: BoxShape.circle),
-              child: Center(child: Text(avatar, style: const TextStyle(fontSize: 18))),
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text)),
-              Text(time, style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
+    return RefreshIndicator(
+      onRefresh: _loadScans,
+      color: AppColors.g600,
+      backgroundColor: Colors.white,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: _HeroHeader()),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverList(delegate: SliverChildListDelegate([
+              _QuickActions(onScan: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const ScannerPage())
+              ).then((_) => _loadScans())),
+              const SizedBox(height: 22),
+              _SectionHeader(
+                title: 'Recent Scans',
+                action: 'See all',
+                onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ScanHistoryPage())),
+              ),
+              const SizedBox(height: 10),
+              if (_loading)
+                const _LoadingCards()
+              else if (_scans.isEmpty)
+                _EmptyScans()
+              else
+                ..._scans.map((s) => _ScanCard(record: s, onTap: () {})),
+              const SizedBox(height: 22),
+              _SectionHeader(title: 'Crop Tips', action: null, onAction: null),
+              const SizedBox(height: 10),
+              const _CropTipsCarousel(),
+              const SizedBox(height: 32),
             ])),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: AppColors.g100, borderRadius: BorderRadius.circular(10)),
-              child: Text(badge, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: AppColors.g700)),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Text(body, style: GoogleFonts.nunitoSans(fontSize: 13, color: AppColors.textMid, height: 1.6)),
-          const SizedBox(height: 10),
-          Row(children: [
-            _PostAction(icon: Icons.favorite, label: '$likes',    color: AppColors.red),
-            const SizedBox(width: 16),
-            _PostAction(icon: Icons.chat_bubble_outline, label: '$comments', color: AppColors.textSoft),
-            const SizedBox(width: 16),
-            _PostAction(icon: Icons.share_outlined, label: 'Share', color: AppColors.textSoft),
-          ]),
+          ),
         ],
       ),
     );
   }
 }
 
-class _PostAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  const _PostAction({required this.icon, required this.label, required this.color});
+// ── Hero Header ────────────────────────────────────────────────
+class _HeroHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF0D3320), Color(0xFF1A6B40), Color(0xFF3DBF73)],
+          stops: [0.0, 0.55, 1.0],
+        ),
+      ),
+      child: Stack(children: [
+        // Decorative circles
+        Positioned(top: -40, right: -30, child: _DecorCircle(size: 160, opacity: 0.06)),
+        Positioned(top: 30,  right: 60,  child: _DecorCircle(size: 80,  opacity: 0.08)),
+        Positioned(bottom: -20, left: -20, child: _DecorCircle(size: 120, opacity: 0.05)),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Top bar
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Row(children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: const Center(child: Text('🌿', style: TextStyle(fontSize: 20))),
+                ),
+                const SizedBox(width: 10),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('PlantGuard', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
+                  Text('AI Disease Detection', style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
+                ]),
+              ]),
+              Row(children: [
+                _GlassBtn(icon: Icons.notifications_rounded, onTap: () {}),
+              ]),
+            ]),
+
+            const SizedBox(height: 22),
+
+            // Greeting
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.g300, shape: BoxShape.circle)),
+                const SizedBox(width: 6),
+                Text('Good morning, Farmer 👋', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+              ]),
+            ),
+            const SizedBox(height: 10),
+
+            RichText(text: TextSpan(
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 26, color: Colors.white, height: 1.25),
+              children: const [
+                TextSpan(text: 'Detect diseases.\n'),
+                TextSpan(text: 'Protect your crops.', style: TextStyle(color: AppColors.g200)),
+              ],
+            )),
+
+            const SizedBox(height: 20),
+
+            // Scan CTA card
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScannerPage())),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 24, offset: const Offset(0, 8)),
+                  ],
+                ),
+                padding: const EdgeInsets.all(14),
+                child: Row(children: [
+                  Container(
+                    width: 50, height: 50,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [AppColors.g500, AppColors.g700]),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Scan a Leaf Now', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.text)),
+                    Text('Point camera · instant AI diagnosis', style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
+                  ])),
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.arrow_forward_rounded, color: AppColors.g600, size: 18),
+                  ),
+                ]),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Stats row
+            Row(children: [
+              _StatPill(value: '38',      label: 'Diseases', icon: '🦠'),
+              const SizedBox(width: 8),
+              _StatPill(value: '14',      label: 'Crops',    icon: '🌾'),
+              const SizedBox(width: 8),
+              _StatPill(value: 'Offline', label: 'Works',    icon: '📶'),
+            ]),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _DecorCircle extends StatelessWidget {
+  final double size, opacity;
+  const _DecorCircle({required this.size, required this.opacity});
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white.withValues(alpha: opacity), width: 1.5),
+    ),
+  );
+}
+
+class _GlassBtn extends StatelessWidget {
+  final IconData icon; final VoidCallback onTap;
+  const _GlassBtn({required this.icon, required this.onTap});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 40, height: 40,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Icon(icon, color: Colors.white, size: 20),
+    ),
+  );
+}
+
+class _StatPill extends StatelessWidget {
+  final String value, label, icon;
+  const _StatPill({required this.value, required this.label, required this.icon});
+  @override
+  Widget build(BuildContext context) => Expanded(child: Container(
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+    ),
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Column(children: [
+      Text(icon, style: const TextStyle(fontSize: 16)),
+      const SizedBox(height: 3),
+      Text(value, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.white)),
+      Text(label, style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
+    ]),
+  ));
+}
+
+// ── Quick Actions ──────────────────────────────────────────────
+class _QuickActions extends StatelessWidget {
+  final VoidCallback onScan;
+  const _QuickActions({required this.onScan});
 
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Icon(icon, size: 15, color: color),
-      const SizedBox(width: 4),
-      Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12, color: color)),
+      _QAction(emoji: '📷', label: 'Scan Leaf',    sub: 'AI diagnosis', color: AppColors.g600, onTap: onScan),
+      const SizedBox(width: 10),
+      _QAction(emoji: '📚', label: 'Disease Info', sub: '38 diseases',  color: AppColors.blue,
+        onTap: () {}),
     ]);
   }
 }
 
-class _TipsRow extends StatelessWidget {
-  final _tips = const [
-    ('💧', 'Water at the base', 'Wet foliage promotes fungal spread.'),
-    ('🌞', 'Scan in morning light', 'Soft natural light improves AI accuracy.'),
-    ('✂️', 'Prune infected leaves', 'Remove early to stop 80% spread.'),
-    ('🧪', 'Rotate fungicides', 'Alternate to avoid resistance.'),
+class _QAction extends StatelessWidget {
+  final String emoji, label, sub; final Color color; final VoidCallback onTap;
+  const _QAction({required this.emoji, required this.label, required this.sub, required this.color, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Expanded(child: GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, 4))],
+        border: Border.all(color: color.withValues(alpha: 0.1)),
+      ),
+      child: Column(children: [
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.text), textAlign: TextAlign.center),
+        Text(sub, style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft), textAlign: TextAlign.center),
+      ]),
+    ),
+  ));
+}
+
+// ── Section header ─────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final String title; final String? action; final VoidCallback? onAction;
+  const _SectionHeader({required this.title, required this.action, required this.onAction});
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Row(children: [
+        Container(width: 3, height: 18, decoration: BoxDecoration(color: AppColors.g600, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 8),
+        Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
+      ]),
+      if (action != null)
+        GestureDetector(
+          onTap: onAction,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
+            child: Text(action!, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g600)),
+          ),
+        ),
+    ],
+  );
+}
+
+// ── Loading skeleton cards ─────────────────────────────────────
+class _LoadingCards extends StatelessWidget {
+  const _LoadingCards();
+  @override
+  Widget build(BuildContext context) => Column(
+    children: List.generate(3, (i) => Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(child: CircularProgressIndicator(color: AppColors.g300, strokeWidth: 2)),
+    )),
+  );
+}
+
+// ── Empty state ────────────────────────────────────────────────
+class _EmptyScans extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(32),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(children: [
+      Container(
+        width: 72, height: 72,
+        decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
+        child: const Center(child: Text('🌱', style: TextStyle(fontSize: 36))),
+      ),
+      const SizedBox(height: 14),
+      Text('No scans yet', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
+      const SizedBox(height: 4),
+      Text('Tap the camera button below\nto scan your first leaf!',
+        textAlign: TextAlign.center,
+        style: GoogleFonts.nunitoSans(fontSize: 13, color: AppColors.textSoft, height: 1.5)),
+    ]),
+  );
+}
+
+
+// ── Scan card ──────────────────────────────────────────────────
+class _ScanCard extends StatelessWidget {
+  final ScanRecord record;
+  final VoidCallback onTap;
+  const _ScanCard({required this.record, required this.onTap});
+
+  Color get _accentColor {
+    if (record.isHealthy) return AppColors.g600;
+    switch (record.severityLabel) {
+      case 'High': return AppColors.red;
+      case 'Medium': return AppColors.orange;
+      default: return AppColors.g600;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4))],
+        ),
+        child: Row(children: [
+          // Left accent bar
+          Container(
+            width: 4, height: 72,
+            decoration: BoxDecoration(
+              color: _accentColor,
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), bottomLeft: Radius.circular(18)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Emoji / image
+          Container(
+            width: 54, height: 54,
+            decoration: BoxDecoration(
+              color: _accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(child: Text(record.emoji, style: const TextStyle(fontSize: 28))),
+          ),
+          const SizedBox(width: 12),
+          // Info
+          Expanded(child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(record.plantName, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)),
+              const SizedBox(height: 2),
+              Text(record.diseaseName, style: GoogleFonts.nunitoSans(fontSize: 12, color: AppColors.textMid)),
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.access_time_rounded, size: 11, color: AppColors.textSoft),
+                const SizedBox(width: 3),
+                Text(record.timeAgo, style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft)),
+                const SizedBox(width: 8),
+                Text('${record.confidence.toStringAsFixed(0)}% match',
+                  style: GoogleFonts.nunito(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textSoft)),
+              ]),
+            ]),
+          )),
+          // Severity badge
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: _SeverityBadge(label: record.severityLabel),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SeverityBadge extends StatelessWidget {
+  final String label;
+  const _SeverityBadge({required this.label});
+
+  Color get _bg {
+    switch (label) {
+      case 'High':    return const Color(0xFFFEE2E2);
+      case 'Medium':  return const Color(0xFFFEF3C7);
+      case 'Healthy': return const Color(0xFFD1FAE5);
+      default:        return const Color(0xFFD1FAE5);
+    }
+  }
+  Color get _fg {
+    switch (label) {
+      case 'High':    return const Color(0xFFB91C1C);
+      case 'Medium':  return const Color(0xFF92400E);
+      case 'Healthy': return const Color(0xFF065F46);
+      default:        return const Color(0xFF065F46);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(20)),
+    child: Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: _fg)),
+  );
+}
+
+// ── Crop Tips Carousel ─────────────────────────────────────────
+class _CropTipsCarousel extends StatelessWidget {
+  const _CropTipsCarousel();
+
+  static const _tips = [
+    ('💧', 'Water Early', 'Water crops before 8 AM to prevent fungal growth during the day.'),
+    ('☀️', 'Scan in Light', 'Scan leaves in natural sunlight for most accurate AI results.'),
+    ('✂️', 'Prune Infected', 'Remove infected leaves immediately to stop disease spreading.'),
+    ('🔄', 'Rotate Fungicides', 'Alternate between fungicide types to prevent resistance.'),
+    ('📏', 'Correct Distance', 'Hold phone 20-30 cm from leaf for best camera focus.'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 110,
+      height: 120,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _tips.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final t = _tips[i];
+        itemBuilder: (_, i) {
+          final (emoji, title, body) = _tips[i];
           return Container(
             width: 180,
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.09), blurRadius: 12, offset: const Offset(0, 2))],
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))],
             ),
-            padding: const EdgeInsets.all(12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(t.$1, style: const TextStyle(fontSize: 22)),
+              Row(children: [
+                Text(emoji, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text))),
+              ]),
               const SizedBox(height: 6),
-              Text(t.$2, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.text)),
-              Text(t.$3, style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft, height: 1.4)),
+              Text(body, style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis),
             ]),
           );
         },
@@ -534,372 +778,538 @@ class _TipsRow extends StatelessWidget {
   }
 }
 
-// ── LIBRARY TAB ────────────────────────────────────────────────
-class _LibraryTab extends StatelessWidget {
-  const _LibraryTab();
-
-  static const _diseases = [
-    ('🍇', 'Grape Black Rot',       'Fungal · Guignardia bidwellii',           'High',   Color(0xFFFEE2E2)),
-    ('🍅', 'Tomato Early Blight',   'Fungal · Alternaria solani',              'Medium', Color(0xFFFEF3C7)),
-    ('🍎', 'Apple Scab',            'Fungal · Venturia inaequalis',            'Medium', Color(0xFFDBEAFE)),
-    ('🌽', 'Corn Common Rust',      'Fungal · Puccinia sorghi',                'Low',    Color(0xFFD1FAE5)),
-    ('🥔', 'Potato Late Blight',    'Oomycete · Phytophthora infestans',       'High',   Color(0xFFEDE9FE)),
-    ('🍅', 'Tomato Late Blight',    'Oomycete · Phytophthora infestans',       'High',   Color(0xFFFEE2E2)),
-    ('🌽', 'Corn Gray Leaf Spot',   'Fungal · Cercospora zeae-maydis',         'Medium', Color(0xFFFEF3C7)),
-    ('🍑', 'Peach Bacterial Spot',  'Bacterial · Xanthomonas arboricola',      'Medium', Color(0xFFDBEAFE)),
-    ('🍓', 'Strawberry Leaf Scorch','Fungal · Diplocarpon earlianum',          'Low',    Color(0xFFD1FAE5)),
-    ('🍊', 'Citrus Greening',       'Bacterial · Candidatus Liberibacter spp.','High',   Color(0xFFFEE2E2)),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: [
-      Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [AppColors.g800, AppColors.g600]),
-        ),
-        padding: const EdgeInsets.fromLTRB(18, 52, 18, 22),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Disease Library', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 21, color: Colors.white)),
-          const SizedBox(height: 4),
-          Text('38 diseases · 14 crop types', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
-          const SizedBox(height: 14),
-          Container(
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-            child: Row(children: [
-              const Icon(Icons.search, color: Colors.white60, size: 18),
-              const SizedBox(width: 8),
-              Text('Search disease or crop…', style: GoogleFonts.nunitoSans(fontSize: 13, color: Colors.white54)),
-            ]),
-          ),
-        ]),
-      ),
-      Expanded(
-        child: ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: _diseases.length,
-          itemBuilder: (context, i) {
-            final d = _diseases[i];
-            return _DiseaseRow(emoji: d.$1, name: d.$2, sub: d.$3, risk: d.$4, iconBg: d.$5);
-          },
-        ),
-      ),
-    ]);
-  }
-}
-
-class _DiseaseRow extends StatelessWidget {
-  final String emoji, name, sub, risk;
-  final Color iconBg;
-  const _DiseaseRow({required this.emoji, required this.name, required this.sub, required this.risk, required this.iconBg});
-
-  Color get _riskBg {
-    switch (risk) {
-      case 'High':   return const Color(0xFFFEE2E2);
-      case 'Medium': return const Color(0xFFFEF3C7);
-      default:       return const Color(0xFFD1FAE5);
-    }
-  }
-
-  Color get _riskFg {
-    switch (risk) {
-      case 'High':   return const Color(0xFFB91C1C);
-      case 'Medium': return const Color(0xFF92400E);
-      default:       return const Color(0xFF065F46);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.09), blurRadius: 12, offset: const Offset(0, 2))],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(children: [
-        Container(
-          width: 46, height: 46,
-          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
-          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text)),
-          Text(sub,  style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: _riskBg, borderRadius: BorderRadius.circular(10)),
-            child: Text('$risk Risk', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: _riskFg)),
-          ),
-        ])),
-        const Icon(Icons.chevron_right_rounded, color: AppColors.textSoft, size: 20),
-      ]),
-    );
-  }
-}
-
-// ── COMMUNITY TAB ──────────────────────────────────────────────
-class _CommunityTab extends StatelessWidget {
-  const _CommunityTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: [
-      Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [AppColors.g800, AppColors.g600]),
-        ),
-        padding: const EdgeInsets.fromLTRB(18, 52, 18, 22),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Community', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 21, color: Colors.white)),
-          Text('Ask · Share · Learn from 2M+ farmers', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
-          const SizedBox(height: 14),
-          Container(
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-            child: Row(children: [
-              const Icon(Icons.search, color: Colors.white60, size: 18),
-              const SizedBox(width: 8),
-              Text('Search posts, crops, diseases…', style: GoogleFonts.nunitoSans(fontSize: 13, color: Colors.white54)),
-            ]),
-          ),
-        ]),
-      ),
-      Expanded(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: AppColors.g600,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: AppColors.g600.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 3))],
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Text('✏️  Ask a Question or Share a Tip',
-                  style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white)),
-              ),
-            ),
-            _CommunityPostCard(avatar: '👨🌾', name: 'Arjun Patil',     time: '2 hrs ago · Maharashtra', badge: 'Farmer', body: 'My tomato plants show yellow spots on older leaves. Looking for organic solutions — anyone tried neem oil?', likes: 24, comments: 8),
-            _CommunityPostCard(avatar: '👩🔬', name: 'Dr. Priya Sharma', time: '5 hrs ago · IARI',         badge: 'Expert', body: '⚠️ High humidity forecast in Karnataka. Perfect conditions for late blight. Apply preventive copper fungicide NOW.', likes: 156, comments: 43),
-            _CommunityPostCard(avatar: '🧑🌾', name: 'Suresh Kumar',    time: '1 day ago · Punjab',       badge: 'Farmer', body: 'Used PlantGuard to catch common rust early on my 5-acre corn field. Saved ₹40,000 worth of crop this season! 🙏', likes: 89, comments: 17),
-          ],
-        ),
-      ),
-    ]);
-  }
-}
-
-// ── PROFILE TAB ────────────────────────────────────────────────
-class _ProfileTab extends StatelessWidget {
+// ════════════════════════════════════════════════════════════════
+// PROFILE TAB
+// ════════════════════════════════════════════════════════════════
+class _ProfileTab extends StatefulWidget {
   const _ProfileTab();
+  @override
+  State<_ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<_ProfileTab> {
+  final _profile = ProfileService();
+  Map<String, dynamic> _data = {};
+  int  _totalScans = 0;
+  int  _cropsSaved = 0;
+  bool _loading    = true;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    final data  = await _profile.loadProfile();
+    final total = await PredictionHistoryService.getHistoryCount();
+    if (mounted) setState(() { _data = data; _totalScans = total; _cropsSaved = total; _loading = false; });
+  }
+
+  void _openEdit() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => _EditProfilePage(data: _data))).then((_) => _load());
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(children: [
-        // Profile hero
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-              colors: [AppColors.g800, AppColors.g600],
-            ),
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.g600, strokeWidth: 2));
+
+    final name     = _data['name']     as String? ?? 'Farmer';
+    final role     = _data['role']     as String? ?? 'Farmer';
+    final location = _data['location'] as String? ?? 'India';
+    final years    = _data['years']    as int?    ?? 0;
+    final crops    = _data['crops']    as List<dynamic>? ?? [];
+
+    return SingleChildScrollView(child: Column(children: [
+
+      // ── Profile Hero ──────────────────────────────────────
+      Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [AppColors.g900, AppColors.g700, AppColors.g500],
           ),
-          padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
-          width: double.infinity,
-          child: Column(children: [
-            Container(
-              width: 84, height: 84,
-              decoration: BoxDecoration(
-                color: AppColors.g200,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 3),
-              ),
-              child: const Center(child: Text('👨🌾', style: TextStyle(fontSize: 40))),
-            ),
-            const SizedBox(height: 12),
-            Text('Ravi Sharma', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-            Text('🌾 Farmer · 8 yrs experience', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.75))),
-            Text('📍 Bengaluru, Karnataka',      style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
-            const SizedBox(height: 18),
-            Row(children: [
-              _ProfileStat(value: '47',  label: 'Scans Done'),
-              const SizedBox(width: 10),
-              _ProfileStat(value: '12',  label: 'Crops Saved'),
-              const SizedBox(width: 10),
-              _ProfileStat(value: '156', label: 'Community Rep'),
-            ]),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(10),
-                color: Colors.white.withValues(alpha: 0.15),
-              ),
-              child: Text('✏️  Edit Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white)),
-            ),
-          ]),
         ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Badges
-            Text('Achievements', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
+        child: Stack(children: [
+          Positioned(top: -30, right: -20, child: _DecorCircle(size: 140, opacity: 0.08)),
+          Positioned(bottom: 10, left: -30, child: _DecorCircle(size: 100, opacity: 0.06)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
+            child: Column(children: [
+              // Avatar
+              Stack(alignment: Alignment.bottomRight, children: [
+                Container(
+                  width: 90, height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(colors: [AppColors.g400, AppColors.g600]),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 3),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 16)],
+                  ),
+                  child: const Center(child: Text('👨‍🌾', style: TextStyle(fontSize: 42))),
+                ),
+                GestureDetector(
+                  onTap: _openEdit,
+                  child: Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8)]),
+                    child: const Icon(Icons.edit_rounded, size: 14, color: AppColors.g700),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 14),
+              Text(name, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 22, color: Colors.white)),
+              const SizedBox(height: 4),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+                  child: Text('🌾 $role${years > 0 ? " · $years yrs exp" : ""}',
+                    style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Text('📍 $location', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
+              const SizedBox(height: 20),
+
+              // Stats
+              Row(children: [
+                _PStat(value: '$_totalScans', label: 'Scans Done',   emoji: '📷'),
+                _PStatDivider(),
+                _PStat(value: '$_cropsSaved', label: 'Crops Helped', emoji: '🌿'),
+                _PStatDivider(),
+                _PStat(value: crops.length.toString(), label: 'Crops Grown', emoji: '🌾'),
+              ]),
+              const SizedBox(height: 18),
+
+              // Edit button
+              GestureDetector(
+                onTap: _openEdit,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)],
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.edit_rounded, size: 15, color: AppColors.g600),
+                    const SizedBox(width: 6),
+                    Text('Edit Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.g700)),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+          // My Crops
+          if (crops.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _SectionHeader(title: 'My Crops', action: null, onAction: null),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 90,
-              child: ListView(scrollDirection: Axis.horizontal, children: const [
-                _BadgeCard(emoji: '🔬', title: 'First Scan',  sub: 'Earned',  earned: true),
-                _BadgeCard(emoji: '🌟', title: '10 Scans',    sub: 'Earned',  earned: true),
-                _BadgeCard(emoji: '🏆', title: 'Crop Saver',  sub: 'Earned',  earned: true),
-                _BadgeCard(emoji: '🌍', title: '100 Scans',   sub: '53/100',  earned: false),
-                _BadgeCard(emoji: '💬', title: 'Helper',      sub: '3/10',    earned: false),
+            Wrap(spacing: 8, runSpacing: 8, children: crops.map((c) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.g50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.g200),
+              ),
+              child: Text(c.toString(), style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g700)),
+            )).toList()),
+            const SizedBox(height: 20),
+          ],
+
+          _MenuGroup(items: [
+            _MenuTile(iconBg: AppColors.g100, icon: Icons.history_rounded, label: 'Scan History',
+              sub: '$_totalScans scans saved', iconColor: AppColors.g600,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ScanHistoryPage()))),
+            _MenuTile(iconBg: const Color(0xFFFEF3C7), icon: Icons.notifications_active_rounded,
+              label: 'Notifications', sub: 'Disease & weather alerts', iconColor: AppColors.amber,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsPage()))),
+            _MenuTile(iconBg: const Color(0xFFDBEAFE), icon: Icons.language_rounded,
+              label: 'Language', sub: 'English · हिंदी · ಕನ್ನಡ', iconColor: AppColors.blue, onTap: () {}),
+            _MenuTile(iconBg: const Color(0xFFEDE9FE), icon: Icons.location_on_rounded,
+              label: 'Location', sub: location, iconColor: const Color(0xFF7C3AED), onTap: _openEdit),
+          ]),
+
+          const SizedBox(height: 12),
+          _MenuGroup(items: [
+            _MenuTile(iconBg: AppColors.g100, icon: Icons.offline_bolt_rounded,
+              label: 'Offline Mode', sub: 'AI runs on-device · no internet', iconColor: AppColors.g600, onTap: () {}),
+            _MenuTile(iconBg: const Color(0xFFFEF3C7), icon: Icons.star_rounded,
+              label: 'Rate PlantGuard', sub: 'Help farmers everywhere', iconColor: AppColors.amber, onTap: () {}),
+            _MenuTile(iconBg: const Color(0xFFFEE2E2), icon: Icons.lock_rounded,
+              label: 'Privacy & Data', sub: 'Photos never leave your phone', iconColor: AppColors.red, onTap: () {}),
+            _MenuTile(iconBg: const Color(0xFFF3E8FF), icon: Icons.info_rounded,
+              label: 'About PlantGuard', sub: 'v1.0.0 · DeepCognix AI Labs', iconColor: const Color(0xFF7C3AED), onTap: () {}),
+          ]),
+
+          const SizedBox(height: 16),
+
+          // Logout
+          GestureDetector(
+            onTap: () async {
+              await AuthService.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => LoginPage()), (route) => false);
+              }
+            },
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.logout_rounded, color: Color(0xFFB91C1C), size: 18),
+                const SizedBox(width: 8),
+                Text('Log Out', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFFB91C1C))),
               ]),
             ),
-            const SizedBox(height: 20),
-            // Menu groups
-            _MenuGroup(items: [
-              _MenuItem(iconBg: AppColors.g100,             icon: Icons.bar_chart_rounded,        label: 'My Scan History',     sub: '47 scans saved'),
-              _MenuItem(iconBg: const Color(0xFFFEF3C7),    icon: Icons.notifications_rounded,    label: 'Notifications',       sub: 'Disease alerts, weather', badge: '3'),
-              _MenuItem(iconBg: const Color(0xFFDBEAFE),    icon: Icons.language_rounded,         label: 'Language',            sub: 'English · हिंदी · ಕನ್ನಡ'),
-              _MenuItem(iconBg: const Color(0xFFEDE9FE),    icon: Icons.location_on_rounded,      label: 'Location & Region',   sub: 'Bengaluru, Karnataka'),
-            ]),
-            const SizedBox(height: 12),
-            _MenuGroup(items: [
-              _MenuItem(iconBg: AppColors.g100,             icon: Icons.offline_bolt_rounded,     label: 'Offline Mode',        sub: 'Model downloaded · Works offline'),
-              _MenuItem(iconBg: const Color(0xFFFEF3C7),    icon: Icons.star_rounded,             label: 'Rate PlantGuard',     sub: 'Help us improve'),
-              _MenuItem(iconBg: const Color(0xFFFEE2E2),    icon: Icons.lock_rounded,             label: 'Privacy & Data',      sub: 'Your data stays on device'),
-              _MenuItem(iconBg: const Color(0xFFF3E8FF),    icon: Icons.info_rounded,             label: 'About PlantGuard',    sub: 'v1.0.0 · DeepCognix AI Labs'),
-            ]),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Center(
-                child: Text('🚪  Log Out', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: const Color(0xFFB91C1C))),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Center(child: Text('PlantGuard v1.0 · Made with ❤️ in Bengaluru',
-              style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft))),
-            const SizedBox(height: 20),
-          ]),
-        ),
-      ]),
-    );
+          ),
+
+          const SizedBox(height: 20),
+          Center(child: Text('PlantGuard v1.0 · Made with ❤️ in Bengaluru',
+            style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft))),
+          const SizedBox(height: 24),
+        ]),
+      ),
+    ]));
   }
 }
 
-class _ProfileStat extends StatelessWidget {
-  final String value, label;
-  const _ProfileStat({required this.value, required this.label});
-
+class _PStat extends StatelessWidget {
+  final String value, label, emoji;
+  const _PStat({required this.value, required this.label, required this.emoji});
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Column(children: [
-          Text(value, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
-          Text(label, style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.7))),
-        ]),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Expanded(child: Column(children: [
+    Text(emoji, style: const TextStyle(fontSize: 18)),
+    const SizedBox(height: 4),
+    Text(value, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+    Text(label, style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
+  ]));
 }
 
-class _BadgeCard extends StatelessWidget {
-  final String emoji, title, sub;
-  final bool earned;
-  const _BadgeCard({required this.emoji, required this.title, required this.sub, required this.earned});
-
+class _PStatDivider extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: earned ? 1.0 : 0.4,
-      child: Container(
-        width: 90,
-        margin: const EdgeInsets.only(right: 10),
-        decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(10),
-          boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.09), blurRadius: 10, offset: const Offset(0, 2))]),
-        padding: const EdgeInsets.all(10),
-        child: Column(children: [
-          Text(emoji, style: const TextStyle(fontSize: 26)),
-          const SizedBox(height: 4),
-          Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: AppColors.text), textAlign: TextAlign.center),
-          Text(sub,   style: GoogleFonts.nunitoSans(fontSize: 9, color: earned ? AppColors.g600 : AppColors.textSoft)),
-        ]),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: 1, height: 40,
+    color: Colors.white.withValues(alpha: 0.2),
+  );
 }
 
 class _MenuGroup extends StatelessWidget {
-  final List<_MenuItem> items;
+  final List<_MenuTile> items;
   const _MenuGroup({required this.items});
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 4))],
+    ),
+    child: Column(children: items.asMap().entries.map((e) => Column(children: [
+      e.value,
+      if (e.key < items.length - 1) const Divider(height: 1, indent: 60, endIndent: 16, color: AppColors.border),
+    ])).toList()),
+  );
+}
+
+class _MenuTile extends StatelessWidget {
+  final Color iconBg, iconColor; final IconData icon;
+  final String label, sub; final VoidCallback onTap;
+  const _MenuTile({required this.iconBg, required this.icon, required this.label,
+    required this.sub, required this.onTap, required this.iconColor});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(children: [
+        Container(
+          width: 38, height: 38,
+          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, size: 18, color: iconColor),
+        ),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.text)),
+          Text(sub, style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
+        ])),
+        Container(
+          width: 28, height: 28,
+          decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(8)),
+          child: const Icon(Icons.chevron_right_rounded, color: AppColors.textSoft, size: 18),
+        ),
+      ]),
+    ),
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// SCAN HISTORY PAGE
+// ════════════════════════════════════════════════════════════════
+class _ScanHistoryPage extends StatefulWidget {
+  const _ScanHistoryPage();
+  @override
+  State<_ScanHistoryPage> createState() => _ScanHistoryPageState();
+}
+
+class _ScanHistoryPageState extends State<_ScanHistoryPage> {
+  List<ScanRecord> _scans = [];
+  bool _loading = true;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    try {
+      final raw = await PredictionHistoryService.getHistory(limit: 50);
+      final List<ScanRecord> scans = raw.map((r) => ScanRecord(
+        id: r['id'],
+        plantName: r['plant_name']?.isEmpty == false ? r['plant_name'] : 'Unknown',
+        diseaseName: r['predicted_disease'].split('___').last.replaceAll('_', ' '),
+        confidence: r['confidence'] * 100,
+        severity: r['confidence'] > 0.85 ? 'High' : 'Medium',
+        scannedAt: DateTime.parse(r['created_at']).toLocal(),
+      )).toList();
+      if (mounted) setState(() { _scans = scans; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _delete(String id) async {
+    await PredictionHistoryService.deletePrediction(id);
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.09), blurRadius: 12, offset: const Offset(0, 2))]),
-      child: Column(
-        children: items.asMap().entries.map((e) {
-          final isLast = e.key == items.length - 1;
-          return Column(children: [
-            e.value,
-            if (!isLast) const Divider(height: 1, indent: 16, endIndent: 16, color: AppColors.border),
-          ]);
-        }).toList(),
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.g800,
+        elevation: 0,
+        title: Text('Scan History', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+          onPressed: () => Navigator.pop(context)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+            onPressed: () { setState(() => _loading = true); _load(); }),
+        ],
       ),
+      body: _loading
+        ? const Center(child: CircularProgressIndicator(color: AppColors.g600, strokeWidth: 2))
+        : _scans.isEmpty
+          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
+                child: const Center(child: Text('📷', style: TextStyle(fontSize: 40)))),
+              const SizedBox(height: 16),
+              Text('No scans yet', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.text)),
+              Text('Scan a leaf to build your history.', style: GoogleFonts.nunitoSans(fontSize: 13, color: AppColors.textSoft)),
+            ]))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _scans.length,
+              itemBuilder: (_, i) {
+                final s = _scans[i];
+                return Dismissible(
+                  key: Key('scan_${s.id}'),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(color: AppColors.red, borderRadius: BorderRadius.circular(18)),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+                      Text('Delete', style: GoogleFonts.nunito(fontSize: 10, color: Colors.white)),
+                    ]),
+                  ),
+                  onDismissed: (_) => _delete(s.id),
+                  child: _ScanCard(record: s, onTap: () {}),
+                );
+              },
+            ),
     );
   }
 }
 
-class _MenuItem extends StatelessWidget {
-  final Color iconBg;
-  final IconData icon;
-  final String label, sub;
-  final String? badge;
-  const _MenuItem({required this.iconBg, required this.icon, required this.label, required this.sub, this.badge});
+// ════════════════════════════════════════════════════════════════
+// EDIT PROFILE PAGE
+// ════════════════════════════════════════════════════════════════
+class _EditProfilePage extends StatefulWidget {
+  final Map<String, dynamic> data;
+  const _EditProfilePage({required this.data});
+  @override
+  State<_EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<_EditProfilePage> {
+  final _svc = ProfileService();
+  late TextEditingController _name, _location;
+  late int    _years;
+  late String _role;
+  late List<String> _crops;
+  bool _saving = false;
+
+  final _allCrops = ['Tomato','Grape','Corn','Apple','Potato','Pepper','Peach','Cherry','Strawberry','Orange','Wheat','Rice'];
+  final _roles    = ['Farmer','Expert','Student','Researcher'];
+
+  @override
+  void initState() {
+    super.initState();
+    _name     = TextEditingController(text: widget.data['name']     as String? ?? '');
+    _location = TextEditingController(text: widget.data['location'] as String? ?? '');
+    _years    = widget.data['years'] as int?    ?? 0;
+    _role     = widget.data['role']  as String? ?? 'Farmer';
+    _crops    = List<String>.from(widget.data['crops'] as List<dynamic>? ?? []);
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    await _svc.saveProfile(name: _name.text, role: _role, location: _location.text, years: _years, crops: _crops);
+    if (mounted) { setState(() => _saving = false); Navigator.pop(context); }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(children: [
-        Container(
-          width: 34, height: 34,
-          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 17, color: AppColors.textMid),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.text)),
-          Text(sub,   style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
-        ])),
-        if (badge != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(color: AppColors.red, borderRadius: BorderRadius.circular(10)),
-            child: Text(badge!, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: Colors.white)),
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.g800,
+        elevation: 0,
+        title: Text('Edit Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
+        leading: IconButton(icon: const Icon(Icons.close_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : Text('Save', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
           ),
-          const SizedBox(width: 6),
         ],
-        const Icon(Icons.chevron_right_rounded, color: AppColors.textSoft, size: 18),
-      ]),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _label('Your Name'),
+          _textField(_name, 'e.g. Ravi Sharma', Icons.person_rounded),
+          const SizedBox(height: 18),
+
+          _label('Role'),
+          Wrap(spacing: 8, runSpacing: 8, children: _roles.map((r) => GestureDetector(
+            onTap: () => setState(() => _role = r),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+              decoration: BoxDecoration(
+                color: _role == r ? AppColors.g600 : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _role == r ? AppColors.g600 : AppColors.border, width: 1.5),
+                boxShadow: _role == r ? [BoxShadow(color: AppColors.g600.withValues(alpha: 0.3), blurRadius: 8)] : [],
+              ),
+              child: Text(r, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 13,
+                color: _role == r ? Colors.white : AppColors.textMid)),
+            ),
+          )).toList()),
+          const SizedBox(height: 18),
+
+          _label('Location'),
+          _textField(_location, 'e.g. Bengaluru, Karnataka', Icons.location_on_rounded),
+          const SizedBox(height: 18),
+
+          _label('Experience: $_years years'),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppColors.g600,
+              inactiveTrackColor: AppColors.g100,
+              thumbColor: AppColors.g600,
+              overlayColor: AppColors.g600.withValues(alpha: 0.15),
+            ),
+            child: Slider(value: _years.toDouble(), min: 0, max: 40, divisions: 40,
+              onChanged: (v) => setState(() => _years = v.round())),
+          ),
+          const SizedBox(height: 18),
+
+          _label('My Crops'),
+          Wrap(spacing: 8, runSpacing: 8, children: _allCrops.map((c) {
+            final on = _crops.contains(c);
+            return GestureDetector(
+              onTap: () => setState(() => on ? _crops.remove(c) : _crops.add(c)),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: on ? AppColors.g50 : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: on ? AppColors.g500 : AppColors.border, width: on ? 2 : 1.5),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (on) const Icon(Icons.check_circle_rounded, color: AppColors.g600, size: 14),
+                  if (on) const SizedBox(width: 5),
+                  Text(c, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12,
+                    color: on ? AppColors.g700 : AppColors.textMid)),
+                ]),
+              ),
+            );
+          }).toList()),
+
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: _saving ? null : _save,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AppColors.g500, AppColors.g700]),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: AppColors.g600.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.save_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text('Save Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ]),
+      ),
     );
   }
+
+  Widget _label(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(t, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)));
+
+  Widget _textField(TextEditingController ctrl, String hint, IconData icon) => Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.border),
+      boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+    child: Row(children: [
+      Icon(icon, size: 18, color: AppColors.g500),
+      const SizedBox(width: 10),
+      Expanded(child: TextField(
+        controller: ctrl,
+        decoration: InputDecoration.collapsed(
+          hintText: hint,
+          hintStyle: GoogleFonts.nunitoSans(fontSize: 13, color: AppColors.textSoft)),
+        style: GoogleFonts.nunitoSans(fontSize: 14, color: AppColors.text))),
+    ]),
+  );
 }
