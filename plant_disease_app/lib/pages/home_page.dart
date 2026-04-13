@@ -13,26 +13,25 @@ import 'login_page.dart';
 
 // ── Colour tokens ──────────────────────────────────────────────
 class AppColors {
-  static const g900    = Color(0xFF0D3320);
-  static const g800    = Color(0xFF144D30);
-  static const g700    = Color(0xFF1A6B40);
+  static const g900    = Color(0xFF031A0F); // Deeper dark
+  static const g800    = Color(0xFF0D3320);
   static const g600    = Color(0xFF1E8049);
-  static const g500    = Color(0xFF25A05C);
-  static const g400    = Color(0xFF3DBF73);
+  static const g500    = Color(0xFF00FF87); // Vibrant Neon Green
+  static const g400    = Color(0xFF60EFFF); // Vibrant Neon Blue
   static const g300    = Color(0xFF6ED498);
   static const g200    = Color(0xFFA8E8C0);
-  static const g100    = Color(0xFFD6F5E4);
-  static const g50     = Color(0xFFEDFAF3);
-  static const bg      = Color(0xFFF0F8F3);
+  static const g50     = Color(0xFFF0FAF5);
+  static const bg      = Color(0xFFF8FCFA);
   static const card    = Colors.white;
   static const text    = Color(0xFF0D2418);
   static const textMid  = Color(0xFF3D5A47);
   static const textSoft = Color(0xFF7A9A84);
-  static const border   = Color(0xFFD4EAD8);
+  static const border   = Color(0xFFE5F2E9);
   static const blue     = Color(0xFF2D84C8);
   static const red      = Color(0xFFE03C3C);
   static const orange   = Color(0xFFF07A28);
   static const amber    = Color(0xFFF5A623);
+  static const accent   = Color(0xFF00FFBD);
 }
 
 class ScanRecord {
@@ -205,24 +204,30 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(color: AppColors.g900.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, -4)),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 68,
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _NavItem(icon: Icons.home_rounded,      label: 'Home',    idx: 0, cur: idx, onTap: onTap),
-            _NavItem(icon: Icons.menu_book_rounded,  label: 'Library', idx: 1, cur: idx, onTap: onTap),
-            const SizedBox(width: 62),
-            _NavItem(icon: Icons.person_rounded,     label: 'Profile', idx: 2, cur: idx, onTap: onTap),
-          ]),
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.8),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
+            boxShadow: [
+              BoxShadow(color: AppColors.g900.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, -4)),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 72,
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                _NavItem(icon: Icons.home_rounded,      label: 'Home',     idx: 0, cur: idx, onTap: onTap),
+                _NavItem(icon: Icons.menu_book_rounded,  label: 'History',  idx: 1, cur: idx, onTap: onTap),
+                const SizedBox(width: 62),
+                _NavItem(icon: Icons.person_rounded,     label: 'Profile',  idx: 2, cur: idx, onTap: onTap),
+              ]),
+            ),
+          ),
         ),
       ),
     );
@@ -254,7 +259,7 @@ class _NavItem extends StatelessWidget {
             child: Icon(icon, size: 22, color: active ? AppColors.g600 : AppColors.textSoft),
           ),
           const SizedBox(height: 3),
-          Text(label, style: GoogleFonts.nunito(
+          Text(label, style: GoogleFonts.outfit(
             fontSize: 10, fontWeight: active ? FontWeight.w800 : FontWeight.w600,
             color: active ? AppColors.g600 : AppColors.textSoft)),
         ]),
@@ -343,122 +348,132 @@ class _HeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [Color(0xFF0D3320), Color(0xFF1A6B40), Color(0xFF3DBF73)],
-          stops: [0.0, 0.55, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF041209)),
       child: Stack(children: [
-        // Decorative circles
-        Positioned(top: -40, right: -30, child: _DecorCircle(size: 160, opacity: 0.06)),
-        Positioned(top: 30,  right: 60,  child: _DecorCircle(size: 80,  opacity: 0.08)),
-        Positioned(bottom: -20, left: -20, child: _DecorCircle(size: 120, opacity: 0.05)),
+        // ── Mesh Gradient (Animated Orbs) ─────────────────────
+        Positioned(top: -100, right: -60, child: _Orb(size: 320, color: const Color(0xFF1E8049), opacity: 0.4)),
+        Positioned(top: 40,  right: 120, child: _Orb(size: 180, color: const Color(0xFF0D3320), opacity: 0.5)),
+        Positioned(bottom: -40, left: -40, child: _Orb(size: 240, color: AppColors.accent, opacity: 0.15)),
+        
+        // Subtle Blur for Mesh Effect
+        Positioned.fill(child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70), child: Container(color: Colors.transparent))),
 
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 52, 20, 28),
+          padding: const EdgeInsets.fromLTRB(20, 52, 20, 32),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Top bar
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Row(children: [
                 Container(
-                  width: 38, height: 38,
+                  width: 42, height: 42,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                   ),
-                  child: const Center(child: Text('🌿', style: TextStyle(fontSize: 20))),
+                  child: const Center(child: Text('🌿', style: TextStyle(fontSize: 22))),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('PlantGuard', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
-                  Text('AI Disease Detection', style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
+                  Text('PlantGuard', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white, letterSpacing: -0.5)),
+                  Text('PRO AI SCANNERS', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.g500, letterSpacing: 1.2)),
                 ]),
               ]),
-              Row(children: [
-                _GlassBtn(icon: Icons.notifications_rounded, onTap: () {}),
-              ]),
+              _GlassBtn(icon: Icons.notifications_none_rounded, onTap: () {}),
             ]),
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 28),
 
-            // Greeting
+            // Greeting Pill
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.g300, shape: BoxShape.circle)),
-                const SizedBox(width: 6),
-                Text('Good morning, Farmer 👋', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+                Container(
+                  width: 8, height: 8, 
+                  decoration: const BoxDecoration(color: AppColors.g500, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.g500, blurRadius: 8)]),
+                ),
+                const SizedBox(width: 8),
+                Text('Real-time Monitoring Active', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.9))),
               ]),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
             RichText(text: TextSpan(
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 26, color: Colors.white, height: 1.25),
-              children: const [
-                TextSpan(text: 'Detect diseases.\n'),
-                TextSpan(text: 'Protect your crops.', style: TextStyle(color: AppColors.g200)),
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 32, color: Colors.white, height: 1.1, letterSpacing: -0.8),
+              children: [
+                const TextSpan(text: 'Healthy Growth.\n'),
+                TextSpan(text: 'Smart Results.', style: TextStyle(color: AppColors.g500.withValues(alpha: 0.85))),
               ],
             )),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // Scan CTA card
-            GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScannerPage())),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 24, offset: const Offset(0, 8)),
-                  ],
-                ),
-                padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Container(
-                    width: 50, height: 50,
+            // Scan CTA card (Glassmorphic)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScannerPage())),
+                  child: Container(
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [AppColors.g500, AppColors.g700]),
-                      borderRadius: BorderRadius.circular(14),
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                     ),
-                    child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      Container(
+                        width: 52, height: 52,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [AppColors.g500, AppColors.accent]),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: AppColors.g500.withValues(alpha: 0.4), blurRadius: 12)],
+                        ),
+                        child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF041209), size: 26),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Instant Diagnosis', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                        Text('Ready to scan 38 diseases', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+                      ])),
+                      const Icon(Icons.chevron_right_rounded, color: Colors.white54, size: 24),
+                    ]),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Scan a Leaf Now', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.text)),
-                    Text('Point camera · instant AI diagnosis', style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
-                  ])),
-                  Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.arrow_forward_rounded, color: AppColors.g600, size: 18),
-                  ),
-                ]),
+                ),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             // Stats row
             Row(children: [
-              _StatPill(value: '38',      label: 'Diseases', icon: '🦠'),
-              const SizedBox(width: 8),
-              _StatPill(value: '14',      label: 'Crops',    icon: '🌾'),
-              const SizedBox(width: 8),
-              _StatPill(value: 'Offline', label: 'Works',    icon: '📶'),
+              _StatPill(value: '38+',     label: 'DISEASES', icon: '🦠'),
+              const SizedBox(width: 10),
+              _StatPill(value: 'Offline', label: 'TFLITE AI', icon: '🚀'),
+              const SizedBox(width: 10),
+              _StatPill(value: '99%',     label: 'UPTIME',   icon: '🌐'),
             ]),
           ]),
         ),
       ]),
     );
   }
+}
+
+class _Orb extends StatelessWidget {
+  final double size, opacity; final Color color;
+  const _Orb({required this.size, required this.color, required this.opacity});
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size, height: size,
+    decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: opacity)),
+  );
 }
 
 class _DecorCircle extends StatelessWidget {
@@ -506,8 +521,8 @@ class _StatPill extends StatelessWidget {
     child: Column(children: [
       Text(icon, style: const TextStyle(fontSize: 16)),
       const SizedBox(height: 3),
-      Text(value, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.white)),
-      Text(label, style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
+      Text(value, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 15, color: Colors.white)),
+      Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
     ]),
   ));
 }
@@ -549,8 +564,8 @@ class _QAction extends StatelessWidget {
           child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
         ),
         const SizedBox(height: 8),
-        Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.text), textAlign: TextAlign.center),
-        Text(sub, style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft), textAlign: TextAlign.center),
+        Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.text), textAlign: TextAlign.center),
+        Text(sub, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSoft), textAlign: TextAlign.center),
       ]),
     ),
   ));
@@ -567,7 +582,7 @@ class _SectionHeader extends StatelessWidget {
       Row(children: [
         Container(width: 3, height: 18, decoration: BoxDecoration(color: AppColors.g600, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 8),
-        Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
+        Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
       ]),
       if (action != null)
         GestureDetector(
@@ -575,7 +590,7 @@ class _SectionHeader extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
-            child: Text(action!, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g600)),
+            child: Text(action!, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g600)),
           ),
         ),
     ],
@@ -617,11 +632,11 @@ class _EmptyScans extends StatelessWidget {
         child: const Center(child: Text('🌱', style: TextStyle(fontSize: 36))),
       ),
       const SizedBox(height: 14),
-      Text('No scans yet', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
+      Text('No scans yet', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
       const SizedBox(height: 4),
       Text('Tap the camera button below\nto scan your first leaf!',
         textAlign: TextAlign.center,
-        style: GoogleFonts.nunitoSans(fontSize: 13, color: AppColors.textSoft, height: 1.5)),
+        style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSoft, height: 1.5)),
     ]),
   );
 }
@@ -677,17 +692,17 @@ class _ScanCard extends StatelessWidget {
           Expanded(child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(record.plantName, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)),
+              Text(record.plantName, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)),
               const SizedBox(height: 2),
-              Text(record.diseaseName, style: GoogleFonts.nunitoSans(fontSize: 12, color: AppColors.textMid)),
+              Text(record.diseaseName, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMid)),
               const SizedBox(height: 4),
               Row(children: [
                 Icon(Icons.access_time_rounded, size: 11, color: AppColors.textSoft),
                 const SizedBox(width: 3),
-                Text(record.timeAgo, style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft)),
+                Text(record.timeAgo, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSoft)),
                 const SizedBox(width: 8),
                 Text('${record.confidence.toStringAsFixed(0)}% match',
-                  style: GoogleFonts.nunito(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textSoft)),
+                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textSoft)),
               ]),
             ]),
           )),
@@ -727,7 +742,7 @@ class _SeverityBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(20)),
-    child: Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 10, color: _fg)),
+    child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 10, color: _fg)),
   );
 }
 
@@ -766,10 +781,10 @@ class _CropTipsCarousel extends StatelessWidget {
               Row(children: [
                 Text(emoji, style: const TextStyle(fontSize: 20)),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text))),
+                Expanded(child: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text))),
               ]),
               const SizedBox(height: 6),
-              Text(body, style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis),
+              Text(body, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis),
             ]),
           );
         },
@@ -856,18 +871,18 @@ class _ProfileTabState extends State<_ProfileTab> {
                 ),
               ]),
               const SizedBox(height: 14),
-              Text(name, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 22, color: Colors.white)),
+              Text(name, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 22, color: Colors.white)),
               const SizedBox(height: 4),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
                   child: Text('🌾 $role${years > 0 ? " · $years yrs exp" : ""}',
-                    style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
                 ),
               ]),
               const SizedBox(height: 4),
-              Text('📍 $location', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
+              Text('📍 $location', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
               const SizedBox(height: 20),
 
               // Stats
@@ -893,7 +908,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.edit_rounded, size: 15, color: AppColors.g600),
                     const SizedBox(width: 6),
-                    Text('Edit Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.g700)),
+                    Text('Edit Profile', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.g700)),
                   ]),
                 ),
               ),
@@ -918,7 +933,7 @@ class _ProfileTabState extends State<_ProfileTab> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.g200),
               ),
-              child: Text(c.toString(), style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g700)),
+              child: Text(c.toString(), style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.g700)),
             )).toList()),
             const SizedBox(height: 20),
           ],
@@ -970,14 +985,14 @@ class _ProfileTabState extends State<_ProfileTab> {
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const Icon(Icons.logout_rounded, color: Color(0xFFB91C1C), size: 18),
                 const SizedBox(width: 8),
-                Text('Log Out', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFFB91C1C))),
+                Text('Log Out', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFFB91C1C))),
               ]),
             ),
           ),
 
           const SizedBox(height: 20),
           Center(child: Text('PlantGuard v1.0 · Made with ❤️ in Bengaluru',
-            style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft))),
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft))),
           const SizedBox(height: 24),
         ]),
       ),
@@ -992,8 +1007,8 @@ class _PStat extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(child: Column(children: [
     Text(emoji, style: const TextStyle(fontSize: 18)),
     const SizedBox(height: 4),
-    Text(value, style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-    Text(label, style: GoogleFonts.nunitoSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
+    Text(value, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+    Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
   ]));
 }
 
@@ -1040,8 +1055,8 @@ class _MenuTile extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.text)),
-          Text(sub, style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
+          Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.text)),
+          Text(sub, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft)),
         ])),
         Container(
           width: 28, height: 28,
@@ -1098,7 +1113,7 @@ class _ScanHistoryPageState extends State<_ScanHistoryPage> {
       appBar: AppBar(
         backgroundColor: AppColors.g800,
         elevation: 0,
-        title: Text('Scan History', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
+        title: Text('Scan History', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
           onPressed: () => Navigator.pop(context)),
@@ -1115,8 +1130,8 @@ class _ScanHistoryPageState extends State<_ScanHistoryPage> {
               Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
                 child: const Center(child: Text('📷', style: TextStyle(fontSize: 40)))),
               const SizedBox(height: 16),
-              Text('No scans yet', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.text)),
-              Text('Scan a leaf to build your history.', style: GoogleFonts.nunitoSans(fontSize: 13, color: AppColors.textSoft)),
+              Text('No scans yet', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.text)),
+              Text('Scan a leaf to build your history.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSoft)),
             ]))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -1133,7 +1148,7 @@ class _ScanHistoryPageState extends State<_ScanHistoryPage> {
                     decoration: BoxDecoration(color: AppColors.red, borderRadius: BorderRadius.circular(18)),
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                       const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
-                      Text('Delete', style: GoogleFonts.nunito(fontSize: 10, color: Colors.white)),
+                      Text('Delete', style: GoogleFonts.outfit(fontSize: 10, color: Colors.white)),
                     ]),
                   ),
                   onDismissed: (_) => _delete(s.id),
@@ -1189,14 +1204,14 @@ class _EditProfilePageState extends State<_EditProfilePage> {
       appBar: AppBar(
         backgroundColor: AppColors.g800,
         elevation: 0,
-        title: Text('Edit Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
+        title: Text('Edit Profile', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
         leading: IconButton(icon: const Icon(Icons.close_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
             child: _saving
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : Text('Save', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
+              : Text('Save', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
           ),
         ],
       ),
@@ -1219,7 +1234,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                 border: Border.all(color: _role == r ? AppColors.g600 : AppColors.border, width: 1.5),
                 boxShadow: _role == r ? [BoxShadow(color: AppColors.g600.withValues(alpha: 0.3), blurRadius: 8)] : [],
               ),
-              child: Text(r, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 13,
+              child: Text(r, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13,
                 color: _role == r ? Colors.white : AppColors.textMid)),
             ),
           )).toList()),
@@ -1258,7 +1273,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (on) const Icon(Icons.check_circle_rounded, color: AppColors.g600, size: 14),
                   if (on) const SizedBox(width: 5),
-                  Text(c, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 12,
+                  Text(c, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12,
                     color: on ? AppColors.g700 : AppColors.textMid)),
                 ]),
               ),
@@ -1279,7 +1294,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const Icon(Icons.save_rounded, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
-                Text('Save Profile', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
+                Text('Save Profile', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
               ]),
             ),
           ),
@@ -1291,7 +1306,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
 
   Widget _label(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Text(t, style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)));
+    child: Text(t, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text)));
 
   Widget _textField(TextEditingController ctrl, String hint, IconData icon) => Container(
     decoration: BoxDecoration(

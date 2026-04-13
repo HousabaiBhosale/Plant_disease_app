@@ -122,7 +122,8 @@ class _ScannerPageState extends State<ScannerPage>
       // Step 5: Show result to user
       if (mounted) {
         setState(() => _analyzing = false);
-        _showResult(result, File(savedPath));
+        final predictionId = logged['prediction_id']?.toString();
+        _showResult(result, File(savedPath), predictionId);
       }
     } catch (e) {
       if (mounted) { setState(() => _analyzing = false); _showError(e.toString()); }
@@ -145,7 +146,7 @@ class _ScannerPageState extends State<ScannerPage>
         content: Row(children: [
           const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
           const SizedBox(width: 8),
-          Expanded(child: Text(msg, style: GoogleFonts.nunitoSans(fontSize: 13, color: Colors.white))),
+          Expanded(child: Text(msg, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white))),
         ]),
         backgroundColor: AppColors.red,
         behavior: SnackBarBehavior.floating,
@@ -154,12 +155,12 @@ class _ScannerPageState extends State<ScannerPage>
     );
   }
 
-  void _showResult(PredictionResult result, File image) {
+  void _showResult(PredictionResult result, File image, String? predictionId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ResultSheet(result: result, imageFile: image),
+      builder: (_) => _ResultSheet(result: result, imageFile: image, predictionId: predictionId),
     );
   }
 
@@ -198,7 +199,7 @@ class _ScannerPageState extends State<ScannerPage>
               const SizedBox(height: 16),
               const CircularProgressIndicator(color: AppColors.g400, strokeWidth: 2),
               const SizedBox(height: 14),
-              Text('Starting camera…', style: GoogleFonts.nunitoSans(fontSize: 13, color: Colors.white54)),
+              Text('Starting camera…', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white54)),
             ])),
           )),
 
@@ -232,8 +233,8 @@ class _ScannerPageState extends State<ScannerPage>
                 _GlassBtn(icon: Icons.arrow_back_ios_new_rounded, onTap: () => Navigator.pop(context), size: 18),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Scan Leaf', style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-                  Text('Point at a leaf and tap capture', style: GoogleFonts.nunitoSans(fontSize: 11, color: Colors.white54)),
+                  Text('Scan Leaf', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+                  Text('Point at a leaf and tap capture', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white54)),
                 ])),
                 _GlassBtn(
                   icon: _flashOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
@@ -248,44 +249,60 @@ class _ScannerPageState extends State<ScannerPage>
         ),
 
         // Scan frame in center
-        Center(child: SizedBox(width: 260, height: 260, child: Stack(children: [
-          // Corner brackets
-          _Corner(top: true,  left: true),
-          _Corner(top: true,  left: false),
-          _Corner(top: false, left: true),
-          _Corner(top: false, left: false),
-
-          // Center crosshair
-          Center(child: Container(
-            width: 18, height: 18,
+        Center(
+          child: Container(
+            width: 260, height: 260,
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.g300.withValues(alpha: 0.5), width: 1),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: AppColors.g500.withValues(alpha: 0.2), width: 1),
+              boxShadow: [
+                BoxShadow(color: AppColors.g500.withValues(alpha: 0.08), blurRadius: 40, spreadRadius: 5),
+              ],
             ),
-          )),
+            child: Stack(children: [
+              // Corner brackets
+              _Corner(top: true,  left: true),
+              _Corner(top: true,  left: false),
+              _Corner(top: false, left: true),
+              _Corner(top: false, left: false),
 
-          // Animated scan line
-          AnimatedBuilder(
-            animation: _scanAnim,
-            builder: (_, __) => Positioned(
-              top: 12 + _scanAnim.value * 218, left: 16, right: 16,
-              child: Container(
-                height: 2,
+              // Center crosshair (Glowing)
+              Center(child: Container(
+                width: 20, height: 20,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    Colors.transparent,
-                    AppColors.g300.withValues(alpha: 0.8),
-                    AppColors.g300,
-                    AppColors.g300.withValues(alpha: 0.8),
-                    Colors.transparent,
-                  ]),
-                  borderRadius: BorderRadius.circular(1),
-                  boxShadow: [BoxShadow(color: AppColors.g300.withValues(alpha: 0.6), blurRadius: 8)],
+                  border: Border.all(color: AppColors.g500.withValues(alpha: 0.6), width: 1.5),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.g500, shape: BoxShape.circle))),
+              )),
+
+              // Animated scan line (Laser style)
+              AnimatedBuilder(
+                animation: _scanAnim,
+                builder: (_, __) => Positioned(
+                  top: 12 + _scanAnim.value * 218, left: 12, right: 12,
+                  child: Container(
+                    height: 3,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [
+                        Colors.transparent,
+                        AppColors.g500.withValues(alpha: 0.4),
+                        AppColors.g500,
+                        AppColors.g500.withValues(alpha: 0.4),
+                        Colors.transparent,
+                      ]),
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(color: AppColors.g500.withValues(alpha: 0.8), blurRadius: 15, spreadRadius: 1),
+                        BoxShadow(color: AppColors.g500.withValues(alpha: 0.3), blurRadius: 30),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ]),
           ),
-        ]))),
+        ),
 
         // Hint pill below scan frame
         Positioned(
@@ -333,7 +350,7 @@ class _ScannerPageState extends State<ScannerPage>
                       ),
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         const Icon(Icons.photo_library_rounded, color: Colors.white, size: 22),
-                        Text('Gallery', style: GoogleFonts.nunito(fontSize: 9, color: Colors.white60, fontWeight: FontWeight.w600)),
+                        Text('Gallery', style: GoogleFonts.outfit(fontSize: 9, color: Colors.white60, fontWeight: FontWeight.w600)),
                       ]),
                     ),
                   ),
@@ -362,7 +379,7 @@ class _ScannerPageState extends State<ScannerPage>
                         const SizedBox(width: 10),
                         Text(
                           _modelLoading ? 'Loading AI model…' : 'Take Photo & Diagnose',
-                          style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white)),
                       ]),
                     ),
                   )),
@@ -378,7 +395,7 @@ class _ScannerPageState extends State<ScannerPage>
                     ),
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                       const Icon(Icons.memory_rounded, color: Colors.white, size: 22),
-                      Text('On-Device', style: GoogleFonts.nunito(fontSize: 9, color: Colors.white60, fontWeight: FontWeight.w600)),
+                      Text('On-Device', style: GoogleFonts.outfit(fontSize: 9, color: Colors.white60, fontWeight: FontWeight.w600)),
                     ]),
                   ),
                 ]),
@@ -389,38 +406,38 @@ class _ScannerPageState extends State<ScannerPage>
 
         // ── Analyzing overlay ────────────────────────────────
         if (_analyzing)
-          Positioned.fill(child: Container(
-            color: Colors.black.withValues(alpha: 0.75),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 90, height: 90,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.g300.withValues(alpha: 0.3), width: 1),
-                ),
-                child: const Center(
-                  child: CircularProgressIndicator(color: AppColors.g300, strokeWidth: 3)),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.45),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const _ProcessingOrbs(),
+                  const SizedBox(height: 32),
+                  Text('Analyzing leaf…',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 24, color: Colors.white, letterSpacing: -0.5)),
+                  const SizedBox(height: 8),
+                  Text('NEURAL ENGINE ACTIVE',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.g500, letterSpacing: 2)),
+                  const SizedBox(height: 48),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.security_rounded, color: AppColors.g500, size: 16),
+                      const SizedBox(width: 10),
+                      Text('Secure On-Device Inference',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7))),
+                    ]),
+                  ),
+                ]),
               ),
-              const SizedBox(height: 24),
-              Text('Analyzing leaf…',
-                style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 20, color: Colors.white)),
-              const SizedBox(height: 6),
-              Text('Running EfficientNet-B0 on-device',
-                style: GoogleFonts.nunitoSans(fontSize: 13, color: Colors.white54)),
-              const SizedBox(height: 40),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                ),
-                child: Text('This works 100% offline 🌿',
-                  style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white60)),
-              ),
-            ]),
-          )),
+            ),
+          ),
 
         // ── Model loading overlay ────────────────────────────
         if (_modelLoading)
@@ -429,8 +446,8 @@ class _ScannerPageState extends State<ScannerPage>
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               const CircularProgressIndicator(color: AppColors.g300, strokeWidth: 3),
               const SizedBox(height: 20),
-              Text('Loading AI model…', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
-              Text('Please wait a moment', style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white54)),
+              Text('Loading AI model…', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
+              Text('Please wait a moment', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white54)),
             ]),
           )),
       ]),
@@ -494,7 +511,7 @@ class _HintPill extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
     ),
-    child: Text(text, style: GoogleFonts.nunitoSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.85))),
+    child: Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.85))),
   );
 }
 
@@ -512,7 +529,7 @@ class _ScanTip extends StatelessWidget {
     child: Row(children: [
       Text(emoji, style: const TextStyle(fontSize: 14)),
       const SizedBox(width: 6),
-      Text(label, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
+      Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
     ]),
   );
 }
@@ -520,14 +537,37 @@ class _ScanTip extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 // RESULT SHEET
 // ════════════════════════════════════════════════════════════════
-class _ResultSheet extends StatelessWidget {
+class _ResultSheet extends StatefulWidget {
   final PredictionResult result;
   final File imageFile;
-  const _ResultSheet({required this.result, required this.imageFile});
+  final String? predictionId;
+  const _ResultSheet({required this.result, required this.imageFile, this.predictionId});
+
+  @override
+  State<_ResultSheet> createState() => _ResultSheetState();
+}
+
+class _ResultSheetState extends State<_ResultSheet> {
+  bool? _isCorrect;
+  bool _submitting = false;
+
+  Future<void> _submitFeedback(bool correct) async {
+    if (widget.predictionId == null || _submitting) return;
+    setState(() { _submitting = true; _isCorrect = correct; });
+
+    try {
+      await ApiService.submitFeedback(
+        predictionId: widget.predictionId!, 
+        wasCorrect: correct
+      );
+    } catch (_) {}
+    
+    if (mounted) setState(() => _submitting = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final healthy = result.isHealthy && !result.isUnknown;
+    final healthy = widget.result.isHealthy && !widget.result.isUnknown;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.90, minChildSize: 0.5, maxChildSize: 0.97,
@@ -553,7 +593,7 @@ class _ResultSheet extends StatelessWidget {
               Stack(children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.file(imageFile,
+                  child: Image.file(widget.imageFile,
                     width: double.infinity, height: 220, fit: BoxFit.cover),
                 ),
                 // Gradient overlay
@@ -568,14 +608,14 @@ class _ResultSheet extends StatelessWidget {
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                      _ConfidencePill(confidence: result.confidence, isHealthy: healthy),
+                      _ConfidencePill(confidence: widget.result.confidence, isHealthy: healthy),
                       const SizedBox(height: 6),
                       Text(
-                        result.isUnknown ? 'Unrecognised Leaf' : result.plantName,
-                        style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 24, color: Colors.white, height: 1.1)),
+                        widget.result.isUnknown ? 'Unrecognised Leaf' : widget.result.plantName,
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 24, color: Colors.white, height: 1.1)),
                       Text(
-                        result.isUnknown ? 'Too low confidence' : result.diseaseName,
-                        style: GoogleFonts.nunitoSans(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
+                        widget.result.isUnknown ? 'Too low confidence' : widget.result.diseaseName,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
                     ]),
                   )),
                 // Close button
@@ -598,8 +638,8 @@ class _ResultSheet extends StatelessWidget {
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(healthy ? Icons.check_circle_rounded : Icons.warning_rounded, color: Colors.white, size: 14),
                       const SizedBox(width: 5),
-                      Text(result.isUnknown ? 'Invalid' : (healthy ? 'Healthy' : 'Diseased'),
-                        style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white)),
+                      Text(widget.result.isUnknown ? 'Invalid' : (healthy ? 'Healthy' : 'Diseased'),
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white)),
                     ]),
                   )),
               ]),
@@ -607,7 +647,7 @@ class _ResultSheet extends StatelessWidget {
               const SizedBox(height: 14),
 
               // Low confidence warning
-              if (result.isUnknown) ...[
+              if (widget.result.isUnknown) ...[
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -619,9 +659,9 @@ class _ResultSheet extends StatelessWidget {
                     const Text('⚠️', style: TextStyle(fontSize: 20)),
                     const SizedBox(width: 10),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Low Confidence', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.amber)),
+                      Text('Low Confidence', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.amber)),
                       Text('Try a clearer photo with better lighting, closer to the leaf.',
-                        style: GoogleFonts.nunitoSans(fontSize: 12, color: const Color(0xFF7C5A00))),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF7C5A00))),
                     ])),
                   ]),
                 ),
@@ -639,26 +679,26 @@ class _ResultSheet extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text('DISEASE SEVERITY',
-                      style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11, color: AppColors.textSoft, letterSpacing: 0.6)),
-                    Text('${result.confidence.toStringAsFixed(1)}%',
-                      style: GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 14,
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 11, color: AppColors.textSoft, letterSpacing: 0.6)),
+                    Text('${widget.result.confidence.toStringAsFixed(1)}%',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14,
                         color: healthy ? AppColors.g600 : AppColors.orange)),
                   ]),
                   const SizedBox(height: 10),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
-                      value: result.confidence / 100,
+                      value: widget.result.confidence / 100,
                       minHeight: 10,
                       backgroundColor: AppColors.border,
                       valueColor: AlwaysStoppedAnimation<Color>(healthy ? AppColors.g400 : AppColors.orange)),
                   ),
                   const SizedBox(height: 8),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text('Mild', style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft)),
-                    Text('Moderate', style: GoogleFonts.nunitoSans(fontSize: 10, color: AppColors.textSoft)),
+                    Text('Mild', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSoft)),
+                    Text('Moderate', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSoft)),
                     Text(healthy ? '✓ Healthy' : '▶ Severe',
-                      style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 10,
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 10,
                         color: healthy ? AppColors.g600 : AppColors.red)),
                   ]),
                 ]),
@@ -668,17 +708,17 @@ class _ResultSheet extends StatelessWidget {
 
               // ── Stats row ─────────────────────────────────
               Row(children: [
-                _StatChip(label: 'Confidence', value: '${result.confidence.toStringAsFixed(1)}%',
+                _StatChip(label: 'Confidence', value: '${widget.result.confidence.toStringAsFixed(1)}%',
                   icon: Icons.percent_rounded, color: AppColors.g600),
                 const SizedBox(width: 10),
-                _StatChip(label: 'Clarity Gap', value: '${result.probGap.toStringAsFixed(1)}%',
+                _StatChip(label: 'Clarity Gap', value: '${widget.result.probGap.toStringAsFixed(1)}%',
                   icon: Icons.bar_chart_rounded, color: AppColors.blue),
                 const SizedBox(width: 10),
                 _StatChip(
                   label: 'Status',
-                  value: result.isUnknown ? 'Unknown' : (healthy ? 'Healthy' : 'Diseased'),
-                  icon: healthy && !result.isUnknown ? Icons.check_circle_rounded : Icons.warning_rounded,
-                  color: healthy && !result.isUnknown ? AppColors.g600 : AppColors.red),
+                  value: widget.result.isUnknown ? 'Unknown' : (healthy ? 'Healthy' : 'Diseased'),
+                  icon: healthy && !widget.result.isUnknown ? Icons.check_circle_rounded : Icons.warning_rounded,
+                  color: healthy && !widget.result.isUnknown ? AppColors.g600 : AppColors.red),
               ]),
 
               const SizedBox(height: 14),
@@ -686,17 +726,17 @@ class _ResultSheet extends StatelessWidget {
               // ── Info cards ────────────────────────────────
               _InfoCard(
                 iconBg: const Color(0xFFFFF7E0), icon: '🔍', title: 'Symptoms Detected',
-                body: result.isUnknown
+                body: widget.result.isUnknown
                   ? 'The image does not confidently match any known leaf disease. Please ensure it is a single, clear, well-lit leaf.'
-                  : 'Visual patterns match known markers for ${result.diseaseName} in ${result.plantName}. High similarity found in the PlantVillage training dataset.',
-                tags: result.isUnknown ? ['Low Confidence'] : [result.plantName, result.diseaseName.split(' ').first],
+                  : 'Visual patterns match known markers for ${widget.result.diseaseName} in ${widget.result.plantName}. High similarity found in the PlantVillage training dataset.',
+                tags: widget.result.isUnknown ? ['Low Confidence'] : [widget.result.plantName, widget.result.diseaseName.split(' ').first],
               ),
               const SizedBox(height: 10),
 
-              if (!result.isUnknown) ...[
+              if (!widget.result.isUnknown) ...[
                 _InfoCard(
                   iconBg: const Color(0xFFE8FFF2), icon: '💊', title: 'Recommended Treatment',
-                  body: result.recommendation,
+                  body: widget.result.recommendation,
                   tags: healthy ? ['No treatment needed', 'Monitor regularly'] : ['Apply fungicide', 'Consult expert'],
                 ),
                 const SizedBox(height: 10),
@@ -708,6 +748,65 @@ class _ResultSheet extends StatelessWidget {
               ],
 
               const SizedBox(height: 20),
+              
+              // ── Feedback Section ─────────────────────────────
+              if (widget.predictionId != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(children: [
+                    Text(
+                      _isCorrect == null ? 'Was this prediction accurate?' : 'Thank you for your feedback!',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textMid),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_isCorrect == null)
+                      Row(children: [
+                        Expanded(child: OutlinedButton.icon(
+                          onPressed: _submitting ? null : () => _submitFeedback(true),
+                          icon: const Icon(Icons.thumb_up_alt_rounded, size: 18),
+                          label: const Text('Yes'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.g600,
+                            side: const BorderSide(color: AppColors.g600),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        )),
+                        const SizedBox(width: 12),
+                        Expanded(child: OutlinedButton.icon(
+                          onPressed: _submitting ? null : () => _submitFeedback(false),
+                          icon: const Icon(Icons.thumb_down_alt_rounded, size: 18),
+                          label: const Text('No'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.red,
+                            side: const BorderSide(color: AppColors.red),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        )),
+                      ])
+                    else
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(
+                          _isCorrect! ? Icons.check_circle_rounded : Icons.info_rounded,
+                          color: _isCorrect! ? AppColors.g600 : AppColors.amber,
+                          size: 20
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isCorrect! ? 'Verified as Correct' : 'Flagged as Incorrect',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.text),
+                        ),
+                      ]),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Scan again button
               GestureDetector(
@@ -723,7 +822,7 @@ class _ResultSheet extends StatelessWidget {
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                     const SizedBox(width: 10),
-                    Text('Scan Another Leaf', style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                    Text('Scan Another Leaf', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
                   ]),
                 ),
               ),
@@ -733,7 +832,7 @@ class _ResultSheet extends StatelessWidget {
                 const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.textSoft),
                 const SizedBox(width: 5),
                 Text('Not a substitute for expert agronomist advice',
-                  style: GoogleFonts.nunitoSans(fontSize: 11, color: AppColors.textSoft)),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft)),
               ])),
             ]),
           )),
@@ -819,9 +918,60 @@ class _InfoCard extends StatelessWidget {
         Wrap(spacing: 6, runSpacing: 6, children: tags!.map((t) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.g200)),
-          child: Text(t, style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11, color: AppColors.g700)),
+          child: Text(t, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 11, color: AppColors.g700)),
         )).toList()),
       ],
     ]),
   );
+}
+
+class _ProcessingOrbs extends StatefulWidget {
+  const _ProcessingOrbs();
+  @override
+  State<_ProcessingOrbs> createState() => _ProcessingOrbsState();
+}
+
+class _ProcessingOrbsState extends State<_ProcessingOrbs> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
+  }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        return Stack(alignment: Alignment.center, children: [
+          _Circle(angle: _ctrl.value * 2 * math.pi, color: AppColors.g500, size: 80),
+          _Circle(angle: (_ctrl.value + 0.33) * 2 * math.pi, color: AppColors.g400, size: 85),
+          _Circle(angle: (_ctrl.value + 0.66) * 2 * math.pi, color: AppColors.accent, size: 90),
+          const Center(child: Icon(Icons.psychology_rounded, color: Colors.white, size: 36)),
+        ]);
+      },
+    );
+  }
+}
+
+class _Circle extends StatelessWidget {
+  final double angle, size; final Color color;
+  const _Circle({required this.angle, required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(math.cos(angle) * 12, math.sin(angle) * 12),
+      child: Container(
+        width: size, height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.15), blurRadius: 20, spreadRadius: 2)],
+        ),
+      ),
+    );
+  }
 }
