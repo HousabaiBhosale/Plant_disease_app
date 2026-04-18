@@ -1,0 +1,94 @@
+{
+  "Tomato___Late_blight": {
+    "disease_name": "Late Blight",
+    "plant_type": "Tomato",
+    "pathogen": "Phytophthora infestans",
+    "severity": "Critical",
+    "symptoms": [
+      "Dark, water-soaked lesions on leaves",
+      "White fuzzy growth on underside",
+      "Brown/black spots on stems",
+      "Fruit rot with dark lesions"
+    ],
+    "organic_treatment": [
+      "Apply copper-based fungicide every 7-10 days",
+      "Remove and destroy infected leaves immediately",
+      "Improve air circulation by pruning",
+      "Apply neem oil as preventive"
+    ],
+    "chemical_treatment": [
+      "Chlorothalonil-based fungicides (Bravo, Echo)",
+      "Mancozeb for prevention",
+      "Apply according to label instructions",
+      "Rotate fungicides to prevent resistance"
+    ],
+    "prevention": [
+      "Crop rotation (3-4 years)",
+      "Avoid overhead watering",
+      "Use resistant varieties",
+      "Mulch to prevent soil splash",
+      "Remove plant debris after harvest"
+    ]
+  },
+  "Tomato___Early_blight": {
+    "disease_name": "Early Blight",
+    "plant_type": "Tomato",
+    "pathogen": "Alternaria solani",
+    "severity": "High",
+    "symptoms": [
+      "Dark brown spots with concentric rings",
+      "Yellowing around spots",
+      "Leaf drop from bottom up",
+      "Target-like lesions on leaves"
+    ],
+    "organic_treatment": [
+      "Apply copper fungicide",
+      "Remove infected lower leaves",
+      "Mulch to prevent soil splash",
+      "Apply compost tea for plant health"
+    ],
+    "chemical_treatment": [
+      "Chlorothalonil",
+      "Mancozeb",
+      "Azoxystrobin"
+    ],
+    "prevention": [
+      "Crop rotation",
+      "Water at base of plant",
+      "Proper plant spacing",
+      "Stake plants for air circulation",
+      "Remove infected plant debris"
+    ]
+  },
+  "Apple___Apple_scab": {
+    "disease_name": "Apple Scab",
+    "plant_type": "Apple",
+    "pathogen": "Venturia inaequalis",
+    "severity": "High",
+    "symptoms": [
+      "Olive-green to black spots on leaves",
+      "Scabby lesions on fruit",
+      "Premature leaf drop",
+      "Deformed fruit"
+    ],
+    "organic_treatment": [
+      "Apply sulfur-based fungicides",
+      "Remove fallen leaves and infected fruit",
+      "Prune for better air circulation",
+      "Apply compost tea to boost immunity"
+    ],
+    "chemical_treatment": [
+      "Myclobutanil",
+      "Fenbuconazole",
+      "Captan",
+      "Apply at green tip stage"
+    ],
+    "prevention": [
+      "Plant resistant varieties (Liberty, Enterprise)",
+      "Clean up leaf litter in fall",
+      "Apply dormant oil in early spring",
+      "Maintain proper tree spacing",
+      "Prune annually for air circulation"
+    ]
+  }
+}

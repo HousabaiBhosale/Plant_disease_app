@@ -1,0 +1,44 @@
+﻿Analyzing plant_disease_app...                                  
+
+   info - Unnecessary use of multiple underscores - lib\pages\home_page.dart:419:29 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\pages\home_page.dart:621:33 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\pages\home_page.dart:621:37 - unnecessary_underscores
+   info - Statements in an if should be enclosed in a block - lib\pages\home_page.dart:685:20 - curly_braces_in_flow_control_structures
+  error - The argument type 'File' can't be assigned to the parameter type 'String'.  - lib\pages\scanner_page.dart:100:48 - argument_type_not_assignable
+  error - The getter 'plantName' isn't defined for the type 'Map<String, dynamic>' - lib\pages\scanner_page.dart:103:32 - undefined_getter
+  error - The getter 'diseaseName' isn't defined for the type 'Map<String, dynamic>' - lib\pages\scanner_page.dart:104:32 - undefined_getter
+  error - The getter 'confidence' isn't defined for the type 'Map<String, dynamic>' - lib\pages\scanner_page.dart:105:32 - undefined_getter
+  error - The getter 'severityLabel' isn't defined for the type 'Map<String, dynamic>' - lib\pages\scanner_page.dart:107:32 - undefined_getter
+  error - The getter 'recommendation' isn't defined for the type 'Map<String, dynamic>' - lib\pages\scanner_page.dart:108:32 - undefined_getter
+  error - Undefined class 'PredictionResult' - lib\pages\scanner_page.dart:135:20 - undefined_class
+   info - Unnecessary use of multiple underscores - lib\pages\scanner_page.dart:220:22 - unnecessary_underscores
+  error - Undefined class 'PredictionResult' - lib\pages\scanner_page.dart:363:9 - undefined_class
+  error - Too many positional arguments: 1 expected, but 2 found - lib\services\profile_service.dart:31:82 - extra_positional_arguments
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:19:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:20:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:27:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:31:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:34:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:37:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:51:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:53:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:54:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:55:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:60:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:96:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:97:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:98:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:99:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:100:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:113:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:114:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_native_mobile.dart:115:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:39:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:40:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:41:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:47:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:48:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:51:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\tflite_service.dart:55:9 - avoid_print
+  error - The name 'PlantDiseaseApp' isn't a class - test\widget_test.dart:16:35 - creation_with_non_type
+
