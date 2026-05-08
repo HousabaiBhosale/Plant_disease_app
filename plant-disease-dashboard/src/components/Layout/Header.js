@@ -11,8 +11,10 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUI } from '../../contexts/ThemeContext';
 
 export default function Header({ open, handleDrawerToggle }) {
+  const { t } = useUI();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [notifAnchor, setNotifAnchor] = React.useState(null);
   const navigate = useNavigate();
@@ -51,10 +53,12 @@ export default function Header({ open, handleDrawerToggle }) {
     <AppBar
       position="fixed"
       sx={{
+        width: { xs: '100%', md: `calc(100vw - 260px)` },
+        ml: { xs: 0, md: '260px' },
         zIndex: (theme) => theme.zIndex.drawer + 1,
         background: 'rgba(255,255,255,0.95)',
         backdropFilter: 'blur(10px)',
-        boxShadow: '0 1px 20px rgba(0,0,0,0.05)',
+        boxShadow: 'none',
         borderBottom: '1px solid rgba(0,0,0,0.05)',
       }}
     >
@@ -68,7 +72,7 @@ export default function Header({ open, handleDrawerToggle }) {
         </IconButton>
 
         <Typography variant="h6" sx={{ flexGrow: 1, color: '#0f172a', fontWeight: 600 }}>
-          Welcome back,{' '}
+          {t('welcome')},{' '}
           <span style={{ color: '#1e3c72', fontWeight: 700 }}>
             {user?.name?.split(' ')[0] || 'Admin'}
           </span>
@@ -138,14 +142,14 @@ export default function Header({ open, handleDrawerToggle }) {
             <ListItemIcon>
               <PersonIcon fontSize="small" sx={{ color: '#3b82f6' }} />
             </ListItemIcon>
-            Profile
+            {t('adminProfile')}
           </MenuItem>
 
           <MenuItem onClick={handleAccountSettings} id="menu-settings-btn">
             <ListItemIcon>
               <SettingsIcon fontSize="small" sx={{ color: '#8b5cf6' }} />
             </ListItemIcon>
-            Account Settings
+            {t('settings')}
           </MenuItem>
 
           <Divider sx={{ my: 0.5 }} />
@@ -154,7 +158,7 @@ export default function Header({ open, handleDrawerToggle }) {
             <ListItemIcon>
               <LogoutIcon fontSize="small" sx={{ color: '#ef4444' }} />
             </ListItemIcon>
-            Logout
+            {t('log_out')}
           </MenuItem>
         </Menu>
 

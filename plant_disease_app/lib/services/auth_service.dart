@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   // ✅ Define baseUrl HERE
   // Using 127.0.0.1 because we have established an ADB reverse tunnel
-  static const String baseUrl = 'http://127.0.0.1:8000';  
+  static const String baseUrl = 'http://10.249.97.190:8000';  
 
   static Future<Map<String, dynamic>> register({
     required String name,
@@ -38,9 +38,11 @@ class AuthService {
         final error = jsonDecode(response.body);
         throw Exception(error['detail'] ?? 'Registration failed');
       }
+    } on http.ClientException {
+      throw Exception('Cannot connect to server. Make sure backend is running at $baseUrl');
     } catch (e) {
       print('❌ Register error: $e');
-      throw Exception('Cannot connect to server. Make sure backend is running at $baseUrl');
+      rethrow;
     }
   }
   
@@ -73,9 +75,11 @@ class AuthService {
         final error = jsonDecode(response.body);
         throw Exception(error['detail'] ?? 'Login failed');
       }
+    } on http.ClientException {
+      throw Exception('Cannot connect to server. Make sure backend is running at $baseUrl');
     } catch (e) {
       print('❌ Login error: $e');
-      throw Exception('Cannot connect to server. Make sure backend is running at $baseUrl');
+      rethrow;
     }
   }
   

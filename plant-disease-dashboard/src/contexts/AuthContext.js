@@ -55,6 +55,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((userData) => {
+    setUser(userData);
+    localStorage.setItem('admin_user', JSON.stringify(userData));
+  }, []);
+
   const isAuthenticated = Boolean(token && user);
 
   const value = {
@@ -64,6 +69,7 @@ export function AuthProvider({ children }) {
     isAuthenticated,
     login,
     logout,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

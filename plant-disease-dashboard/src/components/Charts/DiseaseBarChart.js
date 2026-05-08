@@ -1,15 +1,15 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Box, Typography } from '@mui/material';
 
-const COLORS = ['#1e3c72', '#2a5298', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#1e40af', '#1e3a8a', '#172554', '#0f172a'];
+const COLORS = ['#1e3c72', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#6366f1', '#14b8a6'];
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     return (
-      <Box sx={{ bgcolor: 'white', p: 2, borderRadius: 2, boxShadow: 3, borderLeft: `3px solid ${payload[0].color}` }}>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>{label}</Typography>
-        <Typography variant="caption">Detections: {payload[0].value}</Typography>
+      <Box sx={{ bgcolor: 'rgba(255, 255, 255, 0.95)', p: 2, borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+        <Typography variant="body2" sx={{ fontWeight: 800, color: payload[0].color, mb: 0.5 }}>{payload[0].name}</Typography>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: '#475569' }}>Detections: {payload[0].value}</Typography>
       </Box>
     );
   }
@@ -27,17 +27,32 @@ export default function DiseaseBarChart({ data }) {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis type="number" stroke="#94a3b8" />
-        <YAxis type="category" dataKey="name" width={100} stroke="#94a3b8" />
-        <Tooltip content={<CustomTooltip />} />
-        <Bar dataKey="count" fill="#1e3c72" radius={[0, 8, 8, 0]}>
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="45%"
+          innerRadius={70}
+          outerRadius={100}
+          paddingAngle={5}
+          dataKey="count"
+          nameKey="name"
+          stroke="none"
+          animationDuration={1500}
+          label
+        >
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
-        </Bar>
-      </BarChart>
+        </Pie>
+        <Tooltip content={<CustomTooltip />} />
+        <Legend 
+          verticalAlign="bottom" 
+          height={36}
+          iconType="circle"
+          wrapperStyle={{ fontWeight: 600, fontSize: '13px', paddingTop: '20px' }}
+        />
+      </PieChart>
     </ResponsiveContainer>
   );
 }

@@ -20,33 +20,38 @@ export default function DashboardLayout({ children }) {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
+    <Box sx={{ display: 'flex', width: '100vw', minHeight: '100vh' }}>
       <CssBaseline />
-      <Header open={open} handleDrawerToggle={handleDrawerToggle} />
+      
       <Sidebar 
         open={open} 
         drawerWidth={drawerWidth} 
         handleDrawerToggle={handleDrawerToggle}
         variant={isMobile ? 'temporary' : 'permanent'}
       />
-      <Box
+
+      {/* Main Area */}
+      <Box 
         component="main"
-        className="main-content"
-        sx={{
+        sx={{ 
           flexGrow: 1,
+          minWidth: 0,
+          minHeight: '100vh',
+          display: 'flex', 
+          flexDirection: 'column',
           width: isMobile ? '100%' : `calc(100% - ${drawerWidth}px)`,
-          transition: theme.transitions.create(['margin', 'width'], {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.leavingScreen,
-          }),
         }}
       >
-        <div className="dashboard-container">
-          <Toolbar />
-          <Box sx={{ mt: { xs: 1, md: 2 }, width: '100%' }}>
-            {children}
-          </Box>
-        </div>
+        
+        {/* AppBar/Header */}
+        <Header open={open} handleDrawerToggle={handleDrawerToggle} />
+        <Toolbar /> {/* Prevents overlap from fixed Header */}
+
+        {/* Page Content */}
+        <Box sx={{ flexGrow: 1, width: '100%', p: 3 }}>
+          {children}
+        </Box>
+        
       </Box>
     </Box>
   );

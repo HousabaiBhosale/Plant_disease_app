@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
@@ -17,6 +18,7 @@ import Login from './pages/Login';
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   // Show loading spinner while checking for saved session
   if (loading) {
@@ -43,29 +45,28 @@ function AppContent() {
   // Logged in → show dashboard
   return (
     <DashboardLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/model-monitoring" element={<ModelMonitoring />} />
-        <Route path="/dataset" element={<DatasetManagement />} />
-        <Route path="/feedback" element={<Feedback />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/model-monitoring" element={<ModelMonitoring />} />
+          <Route path="/dataset" element={<DatasetManagement />} />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </AnimatePresence>
     </DashboardLayout>
   );
 }
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Toaster position="top-right" />
-      <Router>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </Router>
-    </ThemeProvider>
+    <Router>
+      <AuthProvider>
+        <Toaster position="top-right" />
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }
 

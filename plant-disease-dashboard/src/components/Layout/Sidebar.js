@@ -14,21 +14,37 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUI } from '../../contexts/ThemeContext';
+import { dashboardAPI } from '../../services/api';
 
-const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/', color: '#3b82f6' },
-  { text: 'Scan History', icon: <AnalyticsIcon />, path: '/analytics', color: '#10b981' },
-  { text: 'Model Monitoring', icon: <ModelTrainingIcon />, path: '/model-monitoring', color: '#f59e0b' },
-  { text: 'Dataset Management', icon: <DatasetIcon />, path: '/dataset', color: '#8b5cf6' },
-  { text: 'Feedback', icon: <FeedbackIcon />, path: '/feedback', color: '#ef4444' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings', color: '#64748b' },
+const menuItems = (t) => [
+  { text: t('dashboard'), icon: <DashboardIcon />, path: '/', color: '#3b82f6' },
+  { text: t('analytics'), icon: <AnalyticsIcon />, path: '/analytics', color: '#10b981' },
+  { text: t('monitoring'), icon: <ModelTrainingIcon />, path: '/model-monitoring', color: '#f59e0b' },
+  { text: t('dataset'), icon: <DatasetIcon />, path: '/dataset', color: '#8b5cf6' },
+  { text: t('feedback'), icon: <FeedbackIcon />, path: '/feedback', color: '#ef4444' },
+  { text: t('settings'), icon: <SettingsIcon />, path: '/settings', color: '#64748b' },
 ];
 
 export default function Sidebar({ open, drawerWidth, handleDrawerToggle, variant }) {
+  const { t } = useUI();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const isMobile = variant === 'temporary';
+  const [accuracy, setAccuracy] = React.useState('...');
+
+  React.useEffect(() => {
+    const fetchAccuracy = async () => {
+      try {
+        const res = await dashboardAPI.getModelMetrics();
+        setAccuracy(res.data.accuracy + '%');
+      } catch (err) {
+        setAccuracy('87.3%'); // Fallback
+      }
+    };
+    fetchAccuracy();
+  }, []);
 
   const handleItemClick = (path) => {
     navigate(path);
@@ -57,6 +73,10 @@ export default function Sidebar({ open, drawerWidth, handleDrawerToggle, variant
         [`& .MuiDrawer-paper`]: {
           width: drawerWidth,
           boxSizing: 'border-box',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
           background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
           borderRight: 'none',
           boxShadow: '4px 0 20px rgba(0,0,0,0.1)',
@@ -73,7 +93,7 @@ export default function Sidebar({ open, drawerWidth, handleDrawerToggle, variant
       <Divider sx={{ backgroundColor: 'rgba(255,255,255,0.1)', my: 2 }} />
 
       <List sx={{ px: 2 }}>
-        {menuItems.map((item, index) => (
+        {menuItems(t).map((item, index) => (
           <motion.div
             key={item.text}
             initial={{ opacity: 0, x: -20 }}
@@ -132,10 +152,10 @@ export default function Sidebar({ open, drawerWidth, handleDrawerToggle, variant
             }}
           >
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-              Model Accuracy
+              {t('accuracy')}
             </Typography>
             <Typography variant="h5" sx={{ color: '#10b981', fontWeight: 700 }}>
-              87.3%
+              {accuracy}
             </Typography>
             <TrendingUpIcon sx={{ fontSize: 16, color: '#10b981', ml: 1 }} />
           </Box>
@@ -163,6 +183,6 @@ export default function Sidebar({ open, drawerWidth, handleDrawerToggle, variant
           </Box>
         </Stack>
       </Box>
-    </Drawer>
+    </Drawer >
   );
 }

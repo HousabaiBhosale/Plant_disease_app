@@ -8,6 +8,12 @@ import 'package:path/path.dart' as p;
 import '../services/tflite_service.dart';
 import '../services/api_service.dart';
 import 'home_page.dart' show AppColors;
+import 'package:provider/provider.dart';
+import '../services/language_service.dart';
+import 'dart:ui';
+import 'dart:math' as math;
+
+import '../data/disease_data.dart';
 
 class ScannerPage extends StatefulWidget {
   const ScannerPage({super.key});
@@ -123,7 +129,15 @@ class _ScannerPageState extends State<ScannerPage>
       if (mounted) {
         setState(() => _analyzing = false);
         final predictionId = logged['prediction_id']?.toString();
-        _showResult(result, File(savedPath), predictionId);
+        
+        // Find matching disease info
+        final diseaseId = rawCode.toLowerCase().replaceAll('___', '_');
+        final info = DiseaseDatabase.all.firstWhere(
+          (d) => d.id == diseaseId,
+          orElse: () => DiseaseDatabase.all.firstWhere((d) => d.id == 'apple_healthy'),
+        );
+
+        _showResult(result, File(savedPath), predictionId, info);
       }
     } catch (e) {
       if (mounted) { setState(() => _analyzing = false); _showError(e.toString()); }
@@ -155,12 +169,12 @@ class _ScannerPageState extends State<ScannerPage>
     );
   }
 
-  void _showResult(PredictionResult result, File image, String? predictionId) {
+  void _showResult(PredictionResult result, File image, String? predictionId, DiseaseInfo info) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ResultSheet(result: result, imageFile: image, predictionId: predictionId),
+      builder: (_) => _ResultSheet(result: result, imageFile: image, predictionId: predictionId, diseaseInfo: info),
     );
   }
 
@@ -541,7 +555,8 @@ class _ResultSheet extends StatefulWidget {
   final PredictionResult result;
   final File imageFile;
   final String? predictionId;
-  const _ResultSheet({required this.result, required this.imageFile, this.predictionId});
+  final DiseaseInfo diseaseInfo;
+  const _ResultSheet({required this.result, required this.imageFile, this.predictionId, required this.diseaseInfo});
 
   @override
   State<_ResultSheet> createState() => _ResultSheetState();
@@ -550,6 +565,7 @@ class _ResultSheet extends StatefulWidget {
 class _ResultSheetState extends State<_ResultSheet> {
   bool? _isCorrect;
   bool _submitting = false;
+  final TextEditingController _commentCtrl = TextEditingController();
 
   Future<void> _submitFeedback(bool correct) async {
     if (widget.predictionId == null || _submitting) return;
@@ -558,11 +574,18 @@ class _ResultSheetState extends State<_ResultSheet> {
     try {
       await ApiService.submitFeedback(
         predictionId: widget.predictionId!, 
-        wasCorrect: correct
+        wasCorrect: correct,
+        comments: _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
       );
     } catch (_) {}
     
     if (mounted) setState(() => _submitting = false);
+  }
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -611,10 +634,10 @@ class _ResultSheetState extends State<_ResultSheet> {
                       _ConfidencePill(confidence: widget.result.confidence, isHealthy: healthy),
                       const SizedBox(height: 6),
                       Text(
-                        widget.result.isUnknown ? 'Unrecognised Leaf' : widget.result.plantName,
+                        widget.result.isUnknown ? 'Unrecognised Leaf' : widget.diseaseInfo.plantName,
                         style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 24, color: Colors.white, height: 1.1)),
                       Text(
-                        widget.result.isUnknown ? 'Too low confidence' : widget.result.diseaseName,
+                        widget.result.isUnknown ? 'Too low confidence' : widget.diseaseInfo.diseaseName,
                         style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
                     ]),
                   )),
@@ -715,8 +738,12 @@ class _ResultSheetState extends State<_ResultSheet> {
                   icon: Icons.bar_chart_rounded, color: AppColors.blue),
                 const SizedBox(width: 10),
                 _StatChip(
-                  label: 'Status',
-                  value: widget.result.isUnknown ? 'Unknown' : (healthy ? 'Healthy' : 'Diseased'),
+                  label: Provider.of<LanguageService>(context).t('status'),
+                  value: widget.result.isUnknown 
+                    ? Provider.of<LanguageService>(context).t('unknown') 
+                    : (healthy 
+                        ? Provider.of<LanguageService>(context).t('healthy') 
+                        : Provider.of<LanguageService>(context).t('diseased')),
                   icon: healthy && !widget.result.isUnknown ? Icons.check_circle_rounded : Icons.warning_rounded,
                   color: healthy && !widget.result.isUnknown ? AppColors.g600 : AppColors.red),
               ]),
@@ -725,25 +752,28 @@ class _ResultSheetState extends State<_ResultSheet> {
 
               // ── Info cards ────────────────────────────────
               _InfoCard(
-                iconBg: const Color(0xFFFFF7E0), icon: '🔍', title: 'Symptoms Detected',
+                iconBg: const Color(0xFFFFF7E0), icon: '🔍', 
+                title: Provider.of<LanguageService>(context).t('symptoms'),
                 body: widget.result.isUnknown
-                  ? 'The image does not confidently match any known leaf disease. Please ensure it is a single, clear, well-lit leaf.'
-                  : 'Visual patterns match known markers for ${widget.result.diseaseName} in ${widget.result.plantName}. High similarity found in the PlantVillage training dataset.',
-                tags: widget.result.isUnknown ? ['Low Confidence'] : [widget.result.plantName, widget.result.diseaseName.split(' ').first],
+                  ? 'The image does not confidently match any known leaf disease.'
+                  : widget.diseaseInfo.localizedDescription(Provider.of<LanguageService>(context).currentLang),
+                tags: widget.result.isUnknown ? ['Low Confidence'] : widget.diseaseInfo.symptoms.take(3).toList(),
               ),
               const SizedBox(height: 10),
 
               if (!widget.result.isUnknown) ...[
                 _InfoCard(
-                  iconBg: const Color(0xFFE8FFF2), icon: '💊', title: 'Recommended Treatment',
-                  body: widget.result.recommendation,
+                  iconBg: const Color(0xFFE8FFF2), icon: '💊', 
+                  title: Provider.of<LanguageService>(context).t('treatment'),
+                  body: widget.diseaseInfo.localizedTips(Provider.of<LanguageService>(context).currentLang, 'treatment').join(' '),
                   tags: healthy ? ['No treatment needed', 'Monitor regularly'] : ['Apply fungicide', 'Consult expert'],
                 ),
                 const SizedBox(height: 10),
 
                 _InfoCard(
-                  iconBg: const Color(0xFFE8F3FF), icon: '🛡️', title: 'Prevention Tips',
-                  body: 'Ensure proper air circulation. Avoid overhead watering. Apply preventive fungicide before the rainy season. Rotate fungicide types to prevent resistance.',
+                  iconBg: const Color(0xFFE8F3FF), icon: '🛡️', 
+                  title: Provider.of<LanguageService>(context).t('prevention'),
+                  body: widget.diseaseInfo.localizedTips(Provider.of<LanguageService>(context).currentLang, 'prevention').join(' '),
                 ),
               ],
 
@@ -764,7 +794,7 @@ class _ResultSheetState extends State<_ResultSheet> {
                       style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textMid),
                     ),
                     const SizedBox(height: 12),
-                    if (_isCorrect == null)
+                    if (_isCorrect == null) ...[
                       Row(children: [
                         Expanded(child: OutlinedButton.icon(
                           onPressed: _submitting ? null : () => _submitFeedback(true),
@@ -789,8 +819,22 @@ class _ResultSheetState extends State<_ResultSheet> {
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         )),
-                      ])
-                    else
+                      ]),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _commentCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Add a comment (optional)',
+                          hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSoft),
+                          filled: true,
+                          fillColor: AppColors.bg,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                        maxLines: 2,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13),
+                      ),
+                    ] else
                       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(
                           _isCorrect! ? Icons.check_circle_rounded : Icons.info_rounded,

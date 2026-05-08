@@ -50,8 +50,10 @@ class PredictionResult {
 class TFLiteService {
   static const int    _imgSize       = 224;
   static const int    _numClasses    = 38;
-  static const double _strictThresh  = 85.0;
-  static const double _gapThresh     = 15.0;
+  // Raised from 85.0 to 90.0 — rejects non-plant images more aggressively
+  static const double _strictThresh  = 90.0;
+  // Raised from 15.0 to 25.0 — requires much clearer winner to accept a prediction
+  static const double _gapThresh     = 25.0;
 
   Interpreter?      _interpreter;
   Map<int, String>  _classLabels = {};

@@ -235,3 +235,25 @@ async def change_password(
     )
     
     return {"message": "Password changed successfully"}
+    
+@router.post("/update-profile")
+async def update_profile(
+    name: str,
+    email: str,
+    current_user: UserInDB = Depends(get_current_user)
+):
+    """Update user profile info"""
+    users_collection = get_users_collection()
+    
+    # Check if new email is taken by another user
+    if email != current_user.email:
+        existing = await users_collection.find_one({"email": email})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already taken")
+            
+    await users_collection.update_one(
+        {"_id": current_user.id},
+        {"$set": {"name": name, "email": email}}
+    )
+    
+    return {"message": "Profile updated successfully"}

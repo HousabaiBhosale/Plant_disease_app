@@ -19,47 +19,51 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f8fafc;
-  overflow-x: hidden;
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.main-content {
-  flex-grow: 1;
-  min-height: 100vh;
-  transition: all 0.3s ease;
-  width: 100%;
-}
-
-.dashboard-container {
-  width: 100%;
-  max-width: 100%;
   margin: 0;
-  position: relative;
-  z-index: 1;
-  padding: 16px; /* Default for mobile */
+  padding: 0;
+  overflow-x: hidden;
+  transition: background-color 0.3s ease;
 }
 
-@media (min-width: 900px) {
-  .dashboard-container {
-    padding: 40px; /* More space for desktop */
-  }
+[data-theme='light'] body {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(210, 100%, 95%, 1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(190, 100%, 96%, 1) 0, transparent 50%);
+  background-attachment: fixed;
+}
+
+[data-theme='dark'] body {
+  background-color: #0f172a;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(222, 47%, 15%, 1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(222, 47%, 12%, 1) 0, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Glass Card - Updated to be theme-aware */
+.glass-card {
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Light mode overrides for glass card */
+[data-theme='light'] .glass-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07) !important;
+}
+
+/* Dark mode overrides for glass card */
+[data-theme='dark'] .glass-card {
+  background: rgba(30, 41, 59, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.mesh-gradient-text {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

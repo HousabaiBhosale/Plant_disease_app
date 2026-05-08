@@ -40,6 +40,45 @@ class DiseaseInfo {
 
   String get fullName => '$plantName — $diseaseName';
   bool get isHealthy => diseaseName.toLowerCase() == 'healthy';
+
+  String localizedDescription(String lang) {
+    if (lang == 'hi') return 'यह आपके पौधे के स्वास्थ्य के लिए महत्वपूर्ण जानकारी है। कृपया लक्षणों की जांच करें और अनुशंसित उपचार का पालन करें।';
+    if (lang == 'mr') return 'तुमच्या रोपाच्या आरोग्यासाठी ही महत्त्वाची माहिती आहे. कृपया लक्षणे तपासा आणि शिफारस केलेल्या उपचारांचे अनुसरण करा।';
+    if (lang == 'kn') return 'ಇದು ನಿಮ್ಮ ಸಸ್ಯದ ಆರೋಗ್ಯಕ್ಕೆ ಪ್ರಮುಖ ಮಾಹಿತಿಯಾಗಿದೆ. ದಯವಿಟ್ಟು ಲಕ್ಷಣಗಳನ್ನು ಪರೀಕ್ಷಿಸಿ ಮತ್ತು ಶಿಫಾರಸು ಮಾಡಿದ ಚಿಕಿತ್ಸೆಯನ್ನು ಅನುಸರಿಸಿ.';
+    if (lang == 'te') return 'ఇది మీ మొక్క ఆరోగ్యానికి సంబంధించిన ముఖ్యమైన సమాచారం. దయచేసి లక్షణాలను తనిಖీ చేయండి మరియు సూచించిన చికిత్సను అనుసరించండి.';
+    if (lang == 'ta') return 'இது உங்கள் தாவரத்தின் ஆரோக்கியத்திற்கான முக்கியமான தகவலாகும். அறிகுறிகளைச் சரிபார்த்து, பரிந்துரைக்கப்பட்ட சிகிச்சையைப் பின்பற்றவும்.';
+    if (lang == 'es') return 'Esta es información importante para la salud de su planta. Por favor verifique los síntomas y siga el tratamiento recomendado.';
+    return description;
+  }
+
+  List<String> localizedTips(String lang, String type) {
+    // Return original data for English or Spanish fallback
+    if (lang == 'en' || lang == 'es') return type == 'treatment' ? treatments : preventions;
+
+    // Localized generic tips for South Indian languages
+    if (lang == 'hi') {
+      if (type == 'treatment') return ['प्रभावित पत्तियों को हटा दें', 'अनुशंसित कवकनाशी का उपयोग करें', 'पानी का छिड़काव कम करें'];
+      return ['नियमित निगरानी रखें', 'पौधों के बीच पर्याप्त दूरी रखें', 'खेत की सफाई बनाए रखें'];
+    }
+    if (lang == 'mr') {
+      if (type == 'treatment') return ['बाधित पाने काढून टाका', 'शिफारस केलेल्या बुरशीनाशकाचा वापर करा', 'पाण्याचा ओलावा कमी करा'];
+      return ['नियमित देखरेख ठेवा', 'रोपांमध्ये पुरेसे अंतर ठेवा', 'शेताची स्वच्छता राखा'];
+    }
+    if (lang == 'kn') {
+      if (type == 'treatment') return ['ಪೀಡಿತ ಎಲೆಗಳನ್ನು ತೆಗೆದುಹಾಕಿ', 'ಶಿಫಾರಸು ಮಾಡಿದ ಶಿಲೀಂಧ್ರನಾಶಕ ಬಳಸಿ', 'ಹೆಚ್ಚು ನೀರು ಹಾಯಿಸಬೇಡಿ'];
+      return ['ನಿಯಮಿತವಾಗಿ ಮೇಲ್ವಿಚಾರಣೆ ಮಾಡಿ', 'ಗಿಡಗಳ ನಡುವೆ ಸಾಕಷ್ಟು ಅಂತರವಿರಲಿ', 'ಸುತ್ತಮುತ್ತಲಿನ ಸ್ವಚ್ಛತೆ ಕಾಪಾಡಿ'];
+    }
+    if (lang == 'te') {
+      if (type == 'treatment') return ['వ్యాధి సోకిన ఆకులను తొలగించండి', 'సిఫార్సు చేసిన మందులను వాడండి', 'నీటి నిల్వ లేకుండా చూడండి'];
+      return ['ఎప్పటికప్పుడు పరిశీలించండి', 'మొక్కల మధ్య సరైన దూరం ఉంచండి', 'పరిసరాలను శుభ್ರంగా ఉంచండి'];
+    }
+    if (lang == 'ta') {
+      if (type == 'treatment') return ['பாதிக்கப்பட்ட இலைகளை அகற்றவும்', 'பரிந்துரைக்கப்பட்ட பூஞ்சைக் கொல்லியைப் பயன்படுத்தவும்', 'தேவையற்ற நீர்ப்பாசனத்தைக் குறைக்கவும்'];
+      return ['தொடர்ந்து கண்காணிப்பு செய்யுங்கள்', 'பயிர்களுக்கு இடையே போதிய இடைவெளி விடவும்', 'வயலைச் சுத்தமாக வைத்திருக்கவும்'];
+    }
+    
+    return type == 'treatment' ? treatments : preventions;
+  }
 }
 
 class DiseaseDatabase {

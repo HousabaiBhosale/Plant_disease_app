@@ -113,11 +113,8 @@ class UserFeedback(BaseModel):
 
     @model_validator(mode="after")
     def require_actual_if_wrong(self) -> "UserFeedback":
-        """If the prediction was wrong, ask for the actual disease label."""
-        if not self.was_correct and not self.actual_disease:
-            raise ValueError(
-                "actual_disease is required when was_correct is False"
-            )
+        """actual_disease is optional even when wrong — user may not know the correct label."""
+        # Removed strict enforcement: Flutter app may submit feedback without actual_disease
         return self
 
     model_config = {"populate_by_name": True}

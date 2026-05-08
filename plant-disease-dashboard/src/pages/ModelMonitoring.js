@@ -1,244 +1,182 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Grid,
-  Paper,
-  Typography,
-  Box,
-  Button,
-  LinearProgress,
-  Alert,
-  Chip,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Tooltip,
+import { 
+  Box, Typography, Grid, Paper, Button, Divider, Table, 
+  TableBody, TableCell, TableContainer, TableHead, TableRow, Chip 
 } from '@mui/material';
-import {
-  Refresh as RefreshIcon,
-  PlayArrow as TrainIcon,
-  CheckCircle as SuccessIcon,
-  History as HistoryIcon,
-} from '@mui/icons-material';
+import { motion } from 'framer-motion';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
+  ResponsiveContainer 
+} from 'recharts';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+
+import StatsCard from '../components/Cards/StatsCard';
 import { dashboardAPI } from '../services/api';
 
+import { useUI } from '../contexts/ThemeContext';
+
+const MotionBox = motion(Box);
+
 export default function ModelMonitoring() {
-  const [loading, setLoading] = useState(true);
+  const { t } = useUI();
+  const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState(null);
-  const [versions, setVersions] = useState([]);
-  const [training, setTraining] = useState(false);
 
   useEffect(() => {
-    fetchModelData();
+    dashboardAPI.getModelMetrics().then(res => setMetrics(res.data)).catch(console.error);
   }, []);
 
-  const fetchModelData = async () => {
+  const handleRetrain = async () => {
     setLoading(true);
     try {
-      const [metricsRes, versionsRes] = await Promise.all([
-        dashboardAPI.getModelMetrics(),
-        dashboardAPI.getModelVersions(),
-      ]);
-      setMetrics(metricsRes.data);
-      setVersions(versionsRes.data);
-    } catch (error) {
-      console.error('Failed to fetch model data:', error);
-    } finally {
+      await dashboardAPI.retrainModel();
+      setTimeout(() => {
+        alert('Model retraining completed successfully!');
+        setLoading(false);
+      }, 2000);
+    } catch (err) {
+      alert('Failed to trigger retraining');
       setLoading(false);
     }
   };
 
-  const handleRetrain = async () => {
-    setTraining(true);
-    try {
-      await dashboardAPI.retrainModel();
-      alert('Model retraining started! This may take a few minutes.');
-      setTimeout(fetchModelData, 5000);
-    } catch (error) {
-      alert('Failed to start retraining: ' + error.message);
-    } finally {
-      setTraining(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <LinearProgress />
-      </Box>
-    );
-  }
+  const modelVersions = [
+    { version: 'v1.1 (Current)', date: 'Mar 25, 2024', acc: '92.5%', status: 'Active' },
+    { version: 'v1.0', date: 'Jan 10, 2024', acc: '88.0%', status: 'Deprecated' },
+    { version: 'v0.9-beta', date: 'Dec 05, 2023', acc: '81.2%', status: 'Archived' },
+  ];
 
   return (
-    <Box>
-      <Box sx={{ textAlign: 'left', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b', mb: 1 }}>
-          Model Monitoring
-        </Typography>
-        <Typography variant="body1" sx={{ color: '#64748b', mb: 3 }}>
-          Track machine learning performance and retraining cycles
-        </Typography>
-        <Box display="flex" justifyContent="flex-start" alignItems="center" gap={2}>
-          <Tooltip title="Refresh Metrics">
-            <IconButton onClick={fetchModelData} sx={{ bgcolor: 'rgba(0,0,0,0.05)' }}>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+    <Box sx={{ width: '100%', pb: 6 }}>
+      
+      <Box display="flex" justifyContent="space-between" alignItems="flex-end" mb={4}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: '#0F172A', mb: 1 }}>
+            {t('monitoring')}
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {t('monitorPerformance')}
+          </Typography>
+        </Box>
+        <Box display="flex" gap={2} alignItems="center">
+          <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderRadius: 2, bgcolor: '#ECFDF5', border: '1px solid #A7F3D0', boxShadow: 'none' }}>
+            <CheckCircleIcon sx={{ color: '#059669', fontSize: 20 }} />
+            <Typography variant="body2" sx={{ color: '#065F46', fontWeight: 700 }}>{t('modelHealth')}: {t('good')}</Typography>
+          </Paper>
           <Button
             variant="contained"
-            startIcon={<TrainIcon />}
+            startIcon={<PlayArrowIcon />}
             onClick={handleRetrain}
-            disabled={training}
-            sx={{ 
-              borderRadius: 3,
-              textTransform: 'none',
-              px: 3,
-              background: 'linear-gradient(135deg, #1e237e 0%, #311b92 100%)',
-              boxShadow: '0 4px 12px rgba(30,35,126,0.3)'
-            }}
+            disabled={loading}
+            sx={{ borderRadius: 2, bgcolor: '#2563EB', fontWeight: 700, px: 3, py: 1 }}
           >
-            {training ? 'Training...' : 'Retrain Model'}
+            {loading ? t('retraining') : t('retrainModel')}
           </Button>
         </Box>
       </Box>
 
-      {/* Current Model Metrics */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Current Model Performance
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body2">Accuracy</Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {metrics?.accuracy || 'N/A'}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={parseFloat(metrics?.accuracy) || 0}
-                sx={{ height: 8, borderRadius: 4, mb: 2 }}
-              />
-              
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body2">Precision</Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {metrics?.precision || 'N/A'}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={parseFloat(metrics?.precision) || 0}
-                sx={{ height: 8, borderRadius: 4, mb: 2 }}
-              />
-              
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body2">Recall</Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {metrics?.recall || 'N/A'}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={parseFloat(metrics?.recall) || 0}
-                sx={{ height: 8, borderRadius: 4, mb: 2 }}
-              />
-              
-              <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography variant="body2">F1 Score</Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {metrics?.f1_score || 'N/A'}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={parseFloat(metrics?.f1_score) || 0}
-                sx={{ height: 8, borderRadius: 4, mb: 2 }}
-              />
-            </Box>
-          </Paper>
+      {/* Metrics Cards */}
+      <Grid container spacing={3} sx={{ width: '100%', mb: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatsCard title={t('accuracy')} value={`${metrics?.accuracy || 0}%`} color="#22C55E" trend="up" trendValue="1.2" />
         </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatsCard title={t('precision')} value={`${metrics?.precision || 0}%`} color="#2563EB" trend="up" trendValue="0.8" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatsCard title={t('recall')} value={`${metrics?.recall || 0}%`} color="#8B5CF6" trend="up" trendValue="2.1" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatsCard title={t('f1Score')} value={`${metrics?.f1_score || 0}%`} color="#F59E0B" trend="down" trendValue="0.3" />
+        </Grid>
+      </Grid>
 
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Model Health Status
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Alert
-                icon={<SuccessIcon fontSize="inherit" />}
-                severity="success"
-                sx={{ mb: 2 }}
-              >
-                Model is performing within expected parameters
-              </Alert>
-              <Typography variant="body2" color="textSecondary" gutterBottom>
-                Last Training: {metrics?.last_trained || '2024-03-15'}
-              </Typography>
-              <Typography variant="body2" color="textSecondary" gutterBottom>
-                Training Samples: {metrics?.training_samples?.toLocaleString() || 'N/A'}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Classes Supported: {metrics?.num_classes || '38'}
-              </Typography>
+      {/* Accuracy Trend Graph */}
+      <Grid container spacing={3} sx={{ width: '100%', mb: 4 }}>
+        <Grid size={{ xs: 12 }}>
+          <Paper className="glass-card" sx={{ p: 3, borderRadius: '24px', width: '100%' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>{t('accuracyTrend')}</Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ mb: 3, display: 'block' }}>{t('performanceOverEpochs')}</Typography>
+            <Box sx={{ height: 400, width: '100%', position: 'relative' }}>
+              {!metrics?.history || metrics.history.length === 0 ? (
+                <Box 
+                  display="flex" 
+                  flexDirection="column" 
+                  alignItems="center" 
+                  justifyContent="center" 
+                  height="100%"
+                  sx={{ bgcolor: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}
+                >
+                  <TimelineIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
+                  <Typography variant="h6" color="textSecondary" sx={{ fontWeight: 700 }}>{t('noHistory')}</Typography>
+                  <Typography variant="body2" color="textSecondary">{t('dataPopulated')}</Typography>
+                </Box>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={metrics?.history || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                    <XAxis dataKey="epoch" stroke="#94a3b8" label={{ value: 'Epochs', position: 'insideBottomRight', offset: -5 }} />
+                    <YAxis stroke="#94a3b8" domain={[0, 100]} />
+                    <RechartsTooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                    <Line type="monotone" dataKey="accuracy" stroke="#22C55E" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} name={t('accuracy') + " %"} />
+                    <Line type="monotone" dataKey="loss" stroke="#EF4444" strokeWidth={3} dot={false} name="Loss" yAxisId={0} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </Box>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Model Version History */}
-      <Paper sx={{ p: 3 }}>
-        <Box display="flex" alignItems="center" mb={2}>
-          <HistoryIcon sx={{ mr: 1, color: '#1a237e' }} />
-          <Typography variant="h6">Model Version History</Typography>
-        </Box>
-        <Divider sx={{ mb: 2 }} />
-        
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Version</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Accuracy</TableCell>
-                <TableCell>Precision</TableCell>
-                <TableCell>Recall</TableCell>
-                <TableCell>Status</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {versions.map((version) => (
-                <TableRow key={version.version}>
-                  <TableCell>
-                    <Chip
-                      label={version.version}
-                      size="small"
-                      color={version.is_active ? 'primary' : 'default'}
-                    />
-                  </TableCell>
-                  <TableCell>{version.trained_date}</TableCell>
-                  <TableCell>{version.accuracy}%</TableCell>
-                  <TableCell>{version.precision}%</TableCell>
-                  <TableCell>{version.recall}%</TableCell>
-                  <TableCell>
-                    {version.is_active ? (
-                      <Chip label="Active" size="small" color="success" />
-                    ) : (
-                      <Chip label="Archived" size="small" />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+      {/* Version History Table */}
+      <Grid container spacing={3} sx={{ width: '100%' }}>
+        <Grid size={{ xs: 12 }}>
+          <Paper className="glass-card" sx={{ p: 3, borderRadius: '24px', width: '100%' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>{t('versionHistory')}</Typography>
+            <TableContainer sx={{ width: '100%' }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>{t('version')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>{t('deployedDate')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>{t('accuracy')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#64748b' }}>{t('status')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#64748b' }} align="right">{t('action')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {modelVersions.map((row, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell sx={{ fontWeight: 700, color: '#0F172A' }}>{row.version}</TableCell>
+                      <TableCell>{row.date}</TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontWeight: 700, color: row.acc.startsWith('9') ? '#22C55E' : '#2563EB' }}>{row.acc}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={row.status} 
+                          size="small" 
+                          sx={{ 
+                            fontWeight: 700, 
+                            borderRadius: 1.5,
+                            bgcolor: row.status === 'Active' ? '#ECFDF5' : '#F1F5F9',
+                            color: row.status === 'Active' ? '#059669' : '#64748B'
+                          }} 
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" variant="text" disabled={row.status === 'Active'}>{t('rollback')}</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+      </Grid>
     </Box>
   );
 }

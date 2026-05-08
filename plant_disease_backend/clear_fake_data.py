@@ -24,16 +24,16 @@ async def clear_fake_data():
     print("=" * 50)
 
     if pred_count == 0:
-        print("\n✅ Database is already clean — no data to remove.")
+        print("\n[OK] Database is already clean - no data to remove.")
         return
 
     # Confirm
-    confirm = input("\n⚠️  This will DELETE all predictions, feedback, and analytics.\n"
+    confirm = input("\n[WARNING] This will DELETE all predictions, feedback, and analytics.\n"
                     "   Only new scans from your Flutter app will appear after this.\n"
                     "   Type 'yes' to continue: ")
 
     if confirm.strip().lower() != "yes":
-        print("❌ Aborted. No data was deleted.")
+        print("[ABORT] Aborted. No data was deleted.")
         return
 
     # Clear all three collections
@@ -41,14 +41,14 @@ async def clear_fake_data():
     result_feed = await db.feedback.delete_many({})
     result_anal = await db.analytics.delete_many({})
 
-    print(f"\n🗑️  Deleted {result_pred.deleted_count} predictions")
-    print(f"🗑️  Deleted {result_feed.deleted_count} feedback entries")
-    print(f"🗑️  Deleted {result_anal.deleted_count} analytics records")
+    print(f"\n[DELETED] Deleted {result_pred.deleted_count} predictions")
+    print(f"[DELETED] Deleted {result_feed.deleted_count} feedback entries")
+    print(f"[DELETED] Deleted {result_anal.deleted_count} analytics records")
 
     # Verify
     remaining = await db.predictions.count_documents({})
-    print(f"\n✅ Database cleaned! Remaining predictions: {remaining}")
-    print("\n📱 Now scan plants from your Flutter app — they will appear")
+    print(f"\n[OK] Database cleaned! Remaining predictions: {remaining}")
+    print("\n[INFO] Now scan plants from your Flutter app - they will appear")
     print("   on the dashboard automatically at http://localhost:3000")
 
 

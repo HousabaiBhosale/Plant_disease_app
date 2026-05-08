@@ -48,6 +48,9 @@ export const dashboardAPI = {
   changePassword: (old_password, new_password) =>
     api.post(`/api/auth/change-password?old_password=${encodeURIComponent(old_password)}&new_password=${encodeURIComponent(new_password)}`),
 
+  updateProfile: (name, email) =>
+    api.post(`/api/auth/update-profile?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`),
+
   // --- Dashboard stats ---
   getStats: (days = 30) => api.get(`/api/admin/stats?days=${days}`),
 
@@ -79,6 +82,9 @@ export const dashboardAPI = {
 
   // Get model versions
   getModelVersions: () => api.get('/api/admin/model-versions'),
+
+  // Get system health status
+  getSystemHealth: () => api.get('/health'),
 };
 
 export default api;

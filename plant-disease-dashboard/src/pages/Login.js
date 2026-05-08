@@ -154,7 +154,7 @@ export default function Login() {
           maxWidth: 440,
           mx: 2,
           p: 5,
-          borderRadius: 4,
+          borderRadius: '24px',
           background: 'rgba(255, 255, 255, 0.07)',
           backdropFilter: 'blur(24px)',
           border: '1px solid rgba(255, 255, 255, 0.12)',

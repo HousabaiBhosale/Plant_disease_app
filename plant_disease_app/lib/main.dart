@@ -8,6 +8,7 @@ import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'services/notification_service.dart';
 import 'providers/auth_provider.dart';
+import 'services/language_service.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -23,7 +24,8 @@ void main() async {
   }
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Notifications
+  // Language & Notifications
+  await LanguageService().init();
   await NotificationService().initialize();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -45,6 +47,7 @@ class PlantGuardApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageService()),
       ],
       child: MaterialApp(
         title: 'PlantGuard',

@@ -11,6 +11,13 @@ from app.database.models import PredictionResponse
 from app.services.ml_service import ml_service
 from app.services.recommendation_service import recommendation_service
 from app.services.logging_service import LoggingService
+from pydantic import BaseModel
+
+class LocalPredictionRequest(BaseModel):
+    disease_code: str
+    confidence: float
+    image_name: str
+    processing_time_ms: float
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -88,10 +95,7 @@ async def predict_disease(
 
 @router.post("/log-local")
 async def log_local_prediction(
-    disease_code: str,
-    confidence: float,
-    image_name: str,
-    processing_time_ms: float,
+    request: LocalPredictionRequest,
     user_id: Optional[str] = Header(None, alias="X-User-ID"),
     device_info: Optional[str] = Header(None, alias="X-Device-Info")
 ):
@@ -111,16 +115,16 @@ async def log_local_prediction(
         # Log the local TFLite prediction
         prediction_id = await LoggingService.log_prediction(
             user_id=user_id,
-            image_name=image_name,
-            predicted_disease=disease_code,
-            confidence=confidence,
+            image_name=request.image_name,
+            predicted_disease=request.disease_code,
+            confidence=request.confidence,
             local_inference=True,  # This is local TFLite
-            processing_time_ms=processing_time_ms,
+            processing_time_ms=request.processing_time_ms,
             device_info=device_dict
         )
         
         # Get recommendations (optional, can be used to update UI)
-        recommendations = recommendation_service.get_recommendations(disease_code)
+        recommendations = recommendation_service.get_recommendations(request.disease_code)
         
         return {
             "status": "logged",
@@ -163,21 +167,33 @@ async def submit_feedback(
 async def get_prediction_history(
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID")
 ):
     """
-    Get prediction history for the logged-in user
-    This replaces SQLite local storage with cloud storage
+    Get prediction history for the logged-in user.
+    Queries by BOTH the JWT user_id AND the X-User-ID header value
+    to cover the case where the header user_id is used during logging.
     """
     try:
         predictions_collection = get_predictions_collection()
         
-        # Get predictions for this user only
-        user_id_str = str(current_user.id) if hasattr(current_user, "id") else str(current_user.get("id") or current_user.get("_id", ""))
-        cursor = predictions_collection.find(
-            {"user_id": user_id_str}
-        ).sort(
-            "created_at", -1  # Most recent first
+        # Build user_id from JWT token
+        jwt_user_id = str(current_user.id) if hasattr(current_user, "id") else str(current_user.get("id") or current_user.get("_id", ""))
+        
+        logger.info(f"📋 History Request: JWT_UID={jwt_user_id}, Header_UID={x_user_id}")
+        
+        # Include both jwt_user_id and X-User-ID header to catch all stored formats
+        user_ids = list({uid for uid in [jwt_user_id, x_user_id] if uid and uid.strip()})
+        logger.info(f"📋 Searching for user_ids: {user_ids}")
+        
+        if not user_ids:
+            return []
+        
+        query = {"user_id": {"$in": user_ids}}
+        
+        cursor = predictions_collection.find(query).sort(
+            "created_at", -1
         ).skip(skip).limit(limit)
         
         predictions = []
@@ -191,7 +207,7 @@ async def get_prediction_history(
                 inference_mode=pred.get("inference_mode", "local"),
                 processing_time_ms=pred.get("processing_time_ms", 0.0),
                 created_at=pred["created_at"],
-                recommendation=None  # Can add recommendation here
+                recommendation=None
             ))
         
         return predictions
