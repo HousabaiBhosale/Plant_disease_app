@@ -13,6 +13,7 @@ import 'login_page.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../services/language_service.dart';
+import '../providers/auth_provider.dart';
 
 // â”€â”€ Colour tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class AppColors {
@@ -59,7 +60,7 @@ class ScanRecord {
   String get emoji {
     final p = plantName.toLowerCase();
     if (p.contains('tomato'))     return 'ðŸ…';
-    if (p.contains('corn'))       return 'ðŸŒ½';
+    if (p.contains('corn'))       return '🌽';
     if (p.contains('apple'))      return 'ðŸŽ';
     if (p.contains('grape'))      return 'ðŸ‡';
     if (p.contains('potato'))     return 'ðŸ¥”';
@@ -68,7 +69,7 @@ class ScanRecord {
     if (p.contains('cherry'))     return 'ðŸ’';
     if (p.contains('strawberry')) return 'ðŸ“';
     if (p.contains('orange'))     return 'ðŸŠ';
-    return 'ðŸŒ¿';
+    return '🌿';
   }
 
   String get severityLabel => severity;
@@ -107,48 +108,53 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      const _HomeTab(),
-      const LibraryPage(),
-      const _ProfileTab(),
-    ];
+    // Listen to LanguageService — any language change triggers full rebuild
+    return Consumer<LanguageService>(
+      builder: (context, lang, _) {
+        final pages = [
+          const _HomeTab(),
+          const LibraryPage(),
+          const _ProfileTab(),
+        ];
 
-    return PopScope(
-      canPop: _idx == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _idx != 0) setState(() => _idx = 0);
-      },
-      child: Scaffold(
-        backgroundColor: AppColors.bg,
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
-          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-          child: KeyedSubtree(key: ValueKey(_idx), child: pages[_idx]),
-        ),
-        floatingActionButton: ScaleTransition(
-          scale: CurvedAnimation(parent: _fabAnim, curve: Curves.elasticOut),
-          child: _PulseFAB(
-            onTap: () => Navigator.push(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (_, a, b) => const ScannerPage(),
-                transitionsBuilder: (_, a, b, child) => SlideTransition(
-                  position: Tween(begin: const Offset(0, 1), end: Offset.zero)
-                      .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
-                  child: child,
-                ),
+        return PopScope(
+          canPop: _idx == 0,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && _idx != 0) setState(() => _idx = 0);
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.bg,
+            body: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+              child: KeyedSubtree(key: ValueKey('${_idx}_${lang.currentLang}'), child: pages[_idx]),
+            ),
+            floatingActionButton: ScaleTransition(
+              scale: CurvedAnimation(parent: _fabAnim, curve: Curves.elasticOut),
+              child: _PulseFAB(
+                onTap: () => Navigator.push(
+                  context,
+                  PageRouteBuilder(
+                    pageBuilder: (_, a, b) => const ScannerPage(),
+                    transitionsBuilder: (_, a, b, child) => SlideTransition(
+                      position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                          .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+                      child: child,
+                    ),
+                  ),
+                ).then((_) => setState(() {})),
               ),
-            ).then((_) => setState(() {})),
+            ),
+            floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+            bottomNavigationBar: _BottomBar(idx: _idx, onTap: (i) {
+              setState(() {
+                _idx = i;
+                _fabAnim.forward(from: 0.6);
+              });
+            }),
           ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: _BottomBar(idx: _idx, onTap: (i) {
-          setState(() {
-            _idx = i;
-            _fabAnim.forward(from: 0.6);
-          });
-        }),
-      ),
+        );
+      },
     );
   }
 }
@@ -392,7 +398,7 @@ class _HeroHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                   ),
-                  child: const Center(child: Text('ðŸŒ¿', style: TextStyle(fontSize: 22))),
+                  child: const Center(child: Text('🌿', style: TextStyle(fontSize: 22))),
                 ),
                 const SizedBox(width: 12),
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -474,11 +480,11 @@ class _HeroHeader extends StatelessWidget {
 
             // Stats row
             Row(children: [
-              _StatPill(value: '38+',     label: 'DISEASES', icon: 'ðŸ¦ '),
+              _StatPill(value: '38+',     label: 'DISEASES', icon: '🦠'),
               const SizedBox(width: 10),
-              _StatPill(value: 'Offline', label: 'TFLITE AI', icon: 'ðŸš€'),
+              _StatPill(value: 'Offline', label: 'TFLITE AI', icon: '🚀'),
               const SizedBox(width: 10),
-              _StatPill(value: '99%',     label: 'UPTIME',   icon: 'ðŸŒ'),
+              _StatPill(value: '99%',     label: 'UPTIME',   icon: '🌐'),
             ]),
           ]),
         ),
@@ -556,17 +562,19 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      _QAction(emoji: 'ðŸ“·', label: Provider.of<LanguageService>(context).t('scan_leaf'),    sub: 'AI diagnosis', color: AppColors.g600, onTap: onScan),
+      _QAction(icon: Icons.document_scanner_rounded, label: Provider.of<LanguageService>(context).t('scan_leaf'),    sub: 'AI diagnosis', color: AppColors.g600, onTap: onScan),
       const SizedBox(width: 10),
-      _QAction(emoji: 'ðŸ“š', label: Provider.of<LanguageService>(context).t('disease_info'), sub: '38 diseases',  color: AppColors.blue,
-        onTap: () {}),
+      _QAction(icon: Icons.local_hospital_rounded,   label: Provider.of<LanguageService>(context).t('disease_info'), sub: '38 diseases',  color: AppColors.blue, onTap: () {}),
     ]);
   }
 }
 
 class _QAction extends StatelessWidget {
-  final String emoji, label, sub; final Color color; final VoidCallback onTap;
-  const _QAction({required this.emoji, required this.label, required this.sub, required this.color, required this.onTap});
+  final IconData icon;
+  final String label, sub;
+  final Color color;
+  final VoidCallback onTap;
+  const _QAction({required this.icon, required this.label, required this.sub, required this.color, required this.onTap});
   @override
   Widget build(BuildContext context) => Expanded(child: GestureDetector(
     onTap: onTap,
@@ -580,9 +588,9 @@ class _QAction extends StatelessWidget {
       ),
       child: Column(children: [
         Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
+          width: 44, height: 44,
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+          child: Icon(icon, color: color, size: 24),
         ),
         const SizedBox(height: 8),
         Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.text), textAlign: TextAlign.center),
@@ -650,7 +658,7 @@ class _EmptyScans extends StatelessWidget {
       Container(
         width: 72, height: 72,
         decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
-        child: const Center(child: Text('ðŸŒ±', style: TextStyle(fontSize: 36))),
+        child: const Center(child: Text('🌱', style: TextStyle(fontSize: 36))),
       ),
       const SizedBox(height: 14),
       Text('No scans yet', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.text)),
@@ -767,16 +775,22 @@ class _SeverityBadge extends StatelessWidget {
   );
 }
 
-// â”€â”€ Crop Tips Carousel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Crop Tips Carousel ─────────────────────────────────────────────────────
 class _CropTipsCarousel extends StatelessWidget {
   const _CropTipsCarousel();
 
-  static const _tips = [
-    ('ðŸ’§', 'Water Early', 'Water crops before 8 AM to prevent fungal growth during the day.'),
-    ('â˜€ï¸', 'Scan in Light', 'Scan leaves in natural sunlight for most accurate AI results.'),
-    ('âœ‚ï¸', 'Prune Infected', 'Remove infected leaves immediately to stop disease spreading.'),
-    ('ðŸ”„', 'Rotate Fungicides', 'Alternate between fungicide types to prevent resistance.'),
-    ('ðŸ“', 'Correct Distance', 'Hold phone 20-30 cm from leaf for best camera focus.'),
+  // Using (icon, iconColor, title, body) - NO emoji strings to avoid encoding issues
+  static const List<(IconData, Color, String, String)> _tips = [
+    (Icons.water_drop_rounded,   Color(0xFF2D84C8), 'Water Early',
+      'Water crops before 8 AM to prevent fungal growth during the day.'),
+    (Icons.wb_sunny_rounded,     Color(0xFFF5A623), 'Scan in Light',
+      'Scan leaves in natural sunlight for most accurate AI results.'),
+    (Icons.content_cut_rounded,  Color(0xFFE03C3C), 'Prune Infected',
+      'Remove infected leaves immediately to stop disease spreading.'),
+    (Icons.refresh_rounded,      Color(0xFF1E8049), 'Rotate Fungicides',
+      'Alternate between fungicide types to prevent resistance.'),
+    (Icons.straighten_rounded,   Color(0xFF7C3AED), 'Correct Distance',
+      'Hold phone 20-30 cm from leaf for best camera focus.'),
   ];
 
   @override
@@ -788,24 +802,36 @@ class _CropTipsCarousel extends StatelessWidget {
         itemCount: _tips.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
-          final (emoji, title, body) = _tips[i];
+          final (icon, color, title, body) = _tips[i];
           return Container(
-            width: 180,
+            width: 185,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
-              boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))],
+              boxShadow: [BoxShadow(
+                color: AppColors.g900.withValues(alpha: 0.06),
+                blurRadius: 10, offset: const Offset(0, 3))],
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Text(emoji, style: const TextStyle(fontSize: 20)),
+                Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(icon, size: 17, color: color),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text))),
+                Expanded(child: Text(title,
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.text))),
               ]),
               const SizedBox(height: 6),
-              Text(body, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis),
+              Text(body,
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft, height: 1.4),
+                maxLines: 3, overflow: TextOverflow.ellipsis),
             ]),
           );
         },
@@ -813,6 +839,8 @@ class _CropTipsCarousel extends StatelessWidget {
     );
   }
 }
+
+
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PROFILE TAB
@@ -874,10 +902,48 @@ class _ProfileTabState extends State<_ProfileTab> {
     );
   }
 
+
+  void _showInfoDialog(BuildContext context, String title, String desc, IconData icon, Color color) {
+    final lang = Provider.of<LanguageService>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 56, height: 56,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 16),
+          Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.text), textAlign: TextAlign.center),
+          const SizedBox(height: 10),
+          Text(desc, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSoft, height: 1.5), textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: Text(lang.t('close'), style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 14)),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.g600, strokeWidth: 2));
 
+    final lang = Provider.of<LanguageService>(context);
     final name     = _data['name']     as String? ?? 'Farmer';
     final role     = _data['role']     as String? ?? 'Farmer';
     final location = _data['location'] as String? ?? 'India';
@@ -929,21 +995,29 @@ class _ProfileTabState extends State<_ProfileTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-                  child: Text('🌾 $role${years > 0 ? " • $years yrs exp" : ""}',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.grass_rounded, size: 13, color: Colors.white70),
+                    const SizedBox(width: 4),
+                    Text('$role${years > 0 ? " • $years yrs exp" : ""}',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.9))),
+                  ]),
                 ),
               ]),
               const SizedBox(height: 4),
-              Text('📍 $location', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.location_on_rounded, size: 13, color: Colors.white54),
+                const SizedBox(width: 3),
+                Text(location, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white.withValues(alpha: 0.65))),
+              ]),
               const SizedBox(height: 20),
 
               // Stats
               Row(children: [
-                _PStat(value: '$_totalScans', label: lang.t('scans_done'),   emoji: '📸'),
+                _PStat(value: '$_totalScans', label: lang.t('scans_done'),   icon: Icons.camera_alt_rounded),
                 _PStatDivider(),
-                _PStat(value: '$_cropsSaved', label: lang.t('crops_helped'), emoji: '🌱'),
+                _PStat(value: '$_cropsSaved', label: lang.t('crops_helped'), icon: Icons.eco_rounded),
                 _PStatDivider(),
-                _PStat(value: crops.length.toString(), label: lang.t('crops_grown'), emoji: '🌾'),
+                _PStat(value: crops.length.toString(), label: lang.t('crops_grown'), icon: Icons.grass_rounded),
               ]),
               const SizedBox(height: 18),
 
@@ -995,7 +1069,7 @@ class _ProfileTabState extends State<_ProfileTab> {
               sub: '$_totalScans ${lang.t('history')}', iconColor: AppColors.g600,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ScanHistoryPage()))),
             _MenuTile(iconBg: const Color(0xFFFEF3C7), icon: Icons.notifications_active_rounded,
-              label: lang.t('notifications'), sub: 'Disease & weather alerts', iconColor: AppColors.amber,
+              label: lang.t('notifications'), sub: lang.t('notif_sub'), iconColor: AppColors.amber,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsPage()))),
             _MenuTile(
               iconBg: const Color(0xFFDBEAFE), 
@@ -1006,19 +1080,19 @@ class _ProfileTabState extends State<_ProfileTab> {
               onTap: () => _showLanguageDialog(context),
             ),
             _MenuTile(iconBg: const Color(0xFFEDE9FE), icon: Icons.location_on_rounded,
-              label: 'Location', sub: location, iconColor: const Color(0xFF7C3AED), onTap: _openEdit),
+              label: lang.t('location_label'), sub: location, iconColor: const Color(0xFF7C3AED), onTap: _openEdit),
           ]),
 
           const SizedBox(height: 12),
           _MenuGroup(items: [
             _MenuTile(iconBg: AppColors.g100, icon: Icons.offline_bolt_rounded,
-              label: lang.t('offline_mode'), sub: 'AI runs on-device • no internet', iconColor: AppColors.g600, onTap: () {}),
+              label: lang.t('offline_mode'), sub: lang.t('offline_mode_sub'), iconColor: AppColors.g600, onTap: () => _showInfoDialog(context, lang.t('offline_title'), lang.t('offline_desc'), Icons.offline_bolt_rounded, AppColors.g600)),
             _MenuTile(iconBg: const Color(0xFFFEF3C7), icon: Icons.star_rounded,
-              label: 'Rate PlantGuard', sub: 'Help farmers everywhere', iconColor: AppColors.amber, onTap: () {}),
+              label: lang.t('rate_app'), sub: lang.t('rate_app_sub'), iconColor: AppColors.amber, onTap: () => _showInfoDialog(context, lang.t('rate_title'), lang.t('rate_desc'), Icons.star_rounded, AppColors.amber)),
             _MenuTile(iconBg: const Color(0xFFFEE2E2), icon: Icons.lock_rounded,
-              label: 'Privacy & Data', sub: 'Photos never leave your phone', iconColor: AppColors.red, onTap: () {}),
+              label: lang.t('privacy_data'), sub: lang.t('privacy_data_sub'), iconColor: AppColors.red, onTap: () => _showInfoDialog(context, lang.t('privacy_title'), lang.t('privacy_desc'), Icons.lock_rounded, AppColors.red)),
             _MenuTile(iconBg: const Color(0xFFF3E8FF), icon: Icons.info_rounded,
-              label: 'About PlantGuard', sub: 'v1.0.0 • DeepCognix AI Labs', iconColor: const Color(0xFF7C3AED), onTap: () {}),
+              label: lang.t('about_app'), sub: lang.t('about_app_sub'), iconColor: const Color(0xFF7C3AED), onTap: () => _showInfoDialog(context, lang.t('about_title'), lang.t('about_desc'), Icons.info_rounded, const Color(0xFF7C3AED))),
           ]),
 
           const SizedBox(height: 16),
@@ -1026,11 +1100,10 @@ class _ProfileTabState extends State<_ProfileTab> {
           // Logout
           GestureDetector(
             onTap: () async {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
               await AuthService.logout();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => LoginPage()), (route) => false);
-              }
+              authProvider.logout();
+              // AuthWrapper will automatically navigate to LoginPage
             },
             child: Container(
               width: double.infinity,
@@ -1043,15 +1116,13 @@ class _ProfileTabState extends State<_ProfileTab> {
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const Icon(Icons.logout_rounded, color: Color(0xFFB91C1C), size: 18),
                 const SizedBox(width: 8),
-                Text('Log Out', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFFB91C1C))),
+                Text(lang.t('log_out'), style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 15, color: const Color(0xFFB91C1C))),
               ]),
             ),
           ),
 
           const SizedBox(height: 20),
-          Center(child: Text('PlantGuard v1.0 • Made with ❤️ in Bengaluru',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft))),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
         ]),
       ),
     ]));
@@ -1059,11 +1130,12 @@ class _ProfileTabState extends State<_ProfileTab> {
 }
 
 class _PStat extends StatelessWidget {
-  final String value, label, emoji;
-  const _PStat({required this.value, required this.label, required this.emoji});
+  final String value, label;
+  final IconData icon;
+  const _PStat({required this.value, required this.label, required this.icon});
   @override
   Widget build(BuildContext context) => Expanded(child: Column(children: [
-    Text(emoji, style: const TextStyle(fontSize: 18)),
+    Icon(icon, size: 20, color: Colors.white70),
     const SizedBox(height: 4),
     Text(value, style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
     Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white.withValues(alpha: 0.65))),
@@ -1186,7 +1258,7 @@ class _ScanHistoryPageState extends State<_ScanHistoryPage> {
         : _scans.isEmpty
           ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               Container(width: 80, height: 80, decoration: BoxDecoration(color: AppColors.g50, borderRadius: BorderRadius.circular(20)),
-                child: const Center(child: Text('ðŸ“·', style: TextStyle(fontSize: 40)))),
+                child: const Icon(Icons.photo_camera_rounded, size: 40, color: AppColors.g300)),
               const SizedBox(height: 16),
               Text('No scans yet', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.text)),
               Text('Scan a leaf to build your history.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSoft)),

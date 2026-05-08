@@ -703,7 +703,7 @@ class _ResultSheetState extends State<_ResultSheet> {
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Text('DISEASE SEVERITY',
                       style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 11, color: AppColors.textSoft, letterSpacing: 0.6)),
-                    Text('${widget.result.confidence.toStringAsFixed(1)}%',
+                    Text('${widget.result.isUnknown ? widget.result.confidence.clamp(0.0, 22.0).toStringAsFixed(1) : widget.result.confidence.toStringAsFixed(1)}%',
                       style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14,
                         color: healthy ? AppColors.g600 : AppColors.orange)),
                   ]),
@@ -711,7 +711,9 @@ class _ResultSheetState extends State<_ResultSheet> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
-                      value: widget.result.confidence / 100,
+                      value: widget.result.isUnknown
+                        ? widget.result.confidence.clamp(0.0, 22.0) / 100
+                        : widget.result.confidence / 100,
                       minHeight: 10,
                       backgroundColor: AppColors.border,
                       valueColor: AlwaysStoppedAnimation<Color>(healthy ? AppColors.g400 : AppColors.orange)),
@@ -731,7 +733,8 @@ class _ResultSheetState extends State<_ResultSheet> {
 
               // ── Stats row ─────────────────────────────────
               Row(children: [
-                _StatChip(label: 'Confidence', value: '${widget.result.confidence.toStringAsFixed(1)}%',
+                _StatChip(label: 'Confidence',
+                  value: '${widget.result.isUnknown ? widget.result.confidence.clamp(0.0, 22.0).toStringAsFixed(1) : widget.result.confidence.toStringAsFixed(1)}%',
                   icon: Icons.percent_rounded, color: AppColors.g600),
                 const SizedBox(width: 10),
                 _StatChip(label: 'Clarity Gap', value: '${widget.result.probGap.toStringAsFixed(1)}%',

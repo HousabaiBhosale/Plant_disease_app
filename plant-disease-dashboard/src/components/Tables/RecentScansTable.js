@@ -67,7 +67,22 @@ export default function RecentScansTable({ predictions }) {
                       {row.predicted_disease?.split('___').pop()?.replace(/_/g, ' ') || t('healthy')}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
-                      {new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {(() => {
+                        // Backend stores UTC; convert to IST (+5:30)
+                        const utcDate = new Date(row.created_at);
+                        const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC+5:30
+                        const istDate = new Date(utcDate.getTime() + istOffset);
+                        const nowIST = new Date(Date.now() + istOffset);
+                        const isToday = istDate.getUTCFullYear() === nowIST.getUTCFullYear()
+                          && istDate.getUTCMonth() === nowIST.getUTCMonth()
+                          && istDate.getUTCDate() === nowIST.getUTCDate();
+                        const timeStr = istDate.toLocaleTimeString('en-IN', {
+                          hour: '2-digit', minute: '2-digit', hour12: true
+                        });
+                        return isToday ? `Today ${timeStr}` : istDate.toLocaleDateString('en-IN', {
+                          day: 'numeric', month: 'short'
+                        }) + ' ' + timeStr;
+                      })()}
                     </Typography>
                   </TableCell>
                   <TableCell>

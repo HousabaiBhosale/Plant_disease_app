@@ -96,17 +96,29 @@ async def get_admin_stats(days: int = Query(7, ge=1, le=30)):
 
 @router.get("/analytics/daily")
 async def get_daily_analytics(days: int = Query(7, ge=1, le=30)):
-    """Get daily analytics aggregated from real prediction logs"""
+    """Get daily analytics aggregated from real prediction logs (IST timezone)"""
     try:
         predictions_collection = get_predictions_collection()
+        # Use IST offset: UTC+5:30 = 330 minutes
+        ist_offset_minutes = 330
         threshold = datetime.utcnow() - timedelta(days=days-1)
         threshold = threshold.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Aggregate real data from predictions collection
+        # Aggregate real data grouping by IST date (add 330 min offset before extracting date)
         pipeline = [
-            {"$match": {"created_at": {"$gte": threshold}}},
+            {"$match": {"created_at": {"$gte": threshold - timedelta(hours=6)}}},  # extra buffer for timezone
+            {"$addFields": {
+                "ist_date": {
+                    "$dateToString": {
+                        "format": "%Y-%m-%d",
+                        "date": {
+                            "$add": ["$created_at", ist_offset_minutes * 60 * 1000]
+                        }
+                    }
+                }
+            }},
             {"$group": {
-                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                "_id": "$ist_date",
                 "total": {"$sum": 1},
                 "local": {"$sum": {"$cond": ["$local_inference", 1, 0]}},
                 "cloud": {"$sum": {"$cond": ["$local_inference", 0, 1]}},
