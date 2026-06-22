@@ -55,7 +55,7 @@ img = image.load_img(img_path, target_size=(IMG_SIZE, IMG_SIZE))
 img_array = image.img_to_array(img)
 # IMPORTANT: Normalization Fix (1.0 instead of 255.0)
 # Our model was trained at this scale to prevent EfficientNet "blindness"
-img_array = img_array / 1.0
+img_array = img_array / 255.0
 img_array = np.expand_dims(img_array, axis=0)
 
 print("Running prediction...")

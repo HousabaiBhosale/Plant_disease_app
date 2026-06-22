@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [dailyAnalytics, setDailyAnalytics] = useState([]);
   const [modelMetrics, setModelMetrics] = useState(null);
   const [recentPredictions, setRecentPredictions] = useState([]);
+  const [error, setError] = useState(null);
   const [ref, inView] = useInView({ triggerOnce: true });
 
   const fetchDashboardData = async () => {
@@ -63,8 +64,10 @@ export default function Dashboard() {
       setDailyAnalytics(analyticsRes.data.daily_stats || []);
       setModelMetrics(modelRes.data);
       setRecentPredictions(predictionsRes.data.data || []);
+      setError(null);
     } catch (err) {
       console.error('Dashboard error:', err);
+      setError(err.message || 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -104,25 +107,28 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <Box display="flex" flexDirection="column" gap={3} p={3}>
-        <Box display="flex" justifyContent="space-between"><Skeleton variant="rectangular" width={300} height={60} /><Skeleton variant="rectangular" width={200} height={40} /></Box>
-        <Grid container spacing={3} sx={{ width: '100%' }}>
-          {[1, 2, 3, 4, 5].map(i => <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}><Skeleton variant="rectangular" height={150} sx={{ borderRadius: '24px' }} /></Grid>)}
-        </Grid>
-        <Grid container spacing={3} sx={{ width: '100%' }}>
-          <Grid size={{ xs: 12, md: 8 }}><Skeleton variant="rectangular" height={400} sx={{ borderRadius: '24px' }} /></Grid>
-          <Grid size={{ xs: 12, md: 4 }}><Skeleton variant="rectangular" height={400} sx={{ borderRadius: '24px' }} /></Grid>
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh" sx={{ bgcolor: '#f8fafc' }}>
+        <Grid container spacing={3} sx={{ p: 4, width: '100%' }}>
+          {[...Array(4)].map((_, i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
+              <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 4 }} />
+            </Grid>
+          ))}
+          <Grid size={{ xs: 12, md: 8 }}><Skeleton variant="rectangular" height={400} sx={{ borderRadius: 4 }} /></Grid>
+          <Grid size={{ xs: 12, md: 4 }}><Skeleton variant="rectangular" height={400} sx={{ borderRadius: 4 }} /></Grid>
         </Grid>
       </Box>
     );
   }
 
-  // Calculate drift mock
-  const accuracyDrop = -2.3;
-
+  // Dynamic data comes directly from backend stats
   return (
     <MotionBox ref={ref} variants={containerVariants} initial="hidden" animate={inView ? "visible" : "hidden"} sx={{ pb: 6, width: '100%' }}>
-      
+      {error && (
+        <Box sx={{ p: 2, mb: 3, bgcolor: '#FEF2F2', color: '#EF4444', borderRadius: 2, border: '1px solid #FECACA' }}>
+          <Typography variant="body1" fontWeight="700">Error loading dashboard: {error}</Typography>
+        </Box>
+      )}
       {/* Header & Status Section */}
       <MotionBox variants={itemVariants} sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box>
@@ -239,9 +245,6 @@ export default function Dashboard() {
                 <PsychologyIcon sx={{ color: '#2563EB' }} />
                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#0F172A' }}>{t('modelIntelligence')}</Typography>
               </Box>
-              <Typography variant="caption" sx={{ color: '#EF4444', bgcolor: '#FEF2F2', px: 1, py: 0.5, borderRadius: 1, fontWeight: 700 }}>
-                {t('accuracyDrop')}: {accuracyDrop}% ⚠️
-              </Typography>
             </Box>
             
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -264,14 +267,10 @@ export default function Dashboard() {
               {/* Version Comparison Table */}
               <Box sx={{ mt: 'auto', p: 2, bgcolor: 'action.hover', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1, display: 'block' }}>{t('versionHistory')}</Typography>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="body2" fontWeight="600" color="text.disabled">v1.0 (Legacy)</Typography>
-                  <Typography variant="body2" fontWeight="600" color="text.disabled">88.0%</Typography>
-                </Box>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="body2" fontWeight="800">v1.1 ({t('active')})</Typography>
+                  <Typography variant="body2" fontWeight="800">Current Model</Typography>
                   <Box display="flex" alignItems="center" gap={0.5}>
-                    <Typography variant="body2" fontWeight="800" color="#22C55E">{modelMetrics?.accuracy || '0.0'}%</Typography>
+                    <Typography variant="body2" fontWeight="800" color="#22C55E">{modelMetrics?.accuracy || 'N/A'}</Typography>
                     <TrendingUpIcon sx={{ fontSize: 16, color: '#22C55E' }} />
                   </Box>
                 </Box>

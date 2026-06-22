@@ -43,10 +43,7 @@ class ApiService {
       print('   User ID: $userId');
       if (token != null) print('   Token: ${token.substring(0, 20)}...');
 
-      if (token == null) {
-        print('❌ No token found - user not logged in');
-        return {'error': 'Not logged in'};
-      }
+      // We allow anonymous prediction logging, so we don't return early if token is null.
       
       final deviceInfo = await _getDeviceInfo();
       

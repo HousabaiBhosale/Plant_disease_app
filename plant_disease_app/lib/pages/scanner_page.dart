@@ -131,9 +131,53 @@ class _ScannerPageState extends State<ScannerPage>
         final predictionId = logged['prediction_id']?.toString();
         
         // Find matching disease info
-        final diseaseId = rawCode.toLowerCase().replaceAll('___', '_');
+        String getMappedId(String rawName) {
+          switch (rawName) {
+            case "Apple___Apple_scab": return "apple_scab";
+            case "Apple___Black_rot": return "apple_black_rot";
+            case "Apple___Cedar_apple_rust": return "apple_cedar_rust";
+            case "Apple___healthy": return "apple_healthy";
+            case "Blueberry___healthy": return "blueberry_healthy";
+            case "Cherry_(including_sour)___Powdery_mildew": return "cherry_powdery_mildew";
+            case "Cherry_(including_sour)___healthy": return "cherry_healthy";
+            case "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": return "corn_gray_leaf_spot";
+            case "Corn_(maize)___Common_rust_": return "corn_common_rust";
+            case "Corn_(maize)___Northern_Leaf_Blight": return "corn_northern_blight";
+            case "Corn_(maize)___healthy": return "corn_healthy";
+            case "Grape___Black_rot": return "grape_black_rot";
+            case "Grape___Esca_(Black_Measles)": return "grape_esca";
+            case "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": return "grape_leaf_blight";
+            case "Grape___healthy": return "grape_healthy";
+            case "Orange___Haunglongbing_(Citrus_greening)": return "orange_greening";
+            case "Peach___Bacterial_spot": return "peach_bacterial_spot";
+            case "Peach___healthy": return "peach_healthy";
+            case "Pepper,_bell___Bacterial_spot": return "pepper_bacterial_spot";
+            case "Pepper,_bell___healthy": return "pepper_healthy";
+            case "Potato___Early_blight": return "potato_early_blight";
+            case "Potato___Late_blight": return "potato_late_blight";
+            case "Potato___healthy": return "potato_healthy";
+            case "Raspberry___healthy": return "raspberry_healthy";
+            case "Soybean___healthy": return "soybean_healthy";
+            case "Squash___Powdery_mildew": return "squash_powdery_mildew";
+            case "Strawberry___Leaf_scorch": return "strawberry_leaf_scorch";
+            case "Strawberry___healthy": return "strawberry_healthy";
+            case "Tomato___Bacterial_spot": return "tomato_bacterial_spot";
+            case "Tomato___Early_blight": return "tomato_early_blight";
+            case "Tomato___Late_blight": return "tomato_late_blight";
+            case "Tomato___Leaf_Mold": return "tomato_leaf_mold";
+            case "Tomato___Septoria_leaf_spot": return "tomato_septoria";
+            case "Tomato___Spider_mites Two-spotted_spider_mite": return "tomato_spider_mites";
+            case "Tomato___Target_Spot": return "tomato_target_spot";
+            case "Tomato___Tomato_Yellow_Leaf_Curl_Virus": return "tomato_yellow_curl";
+            case "Tomato___Tomato_mosaic_virus": return "tomato_mosaic_virus";
+            case "Tomato___healthy": return "tomato_healthy";
+            default: return "apple_healthy";
+          }
+        }
+        
+        final mappedId = getMappedId(result.rawClassName);
         final info = DiseaseDatabase.all.firstWhere(
-          (d) => d.id == diseaseId,
+          (d) => d.id == mappedId,
           orElse: () => DiseaseDatabase.all.firstWhere((d) => d.id == 'apple_healthy'),
         );
 

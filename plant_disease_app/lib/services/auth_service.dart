@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   // ✅ Define baseUrl HERE
   // Using 127.0.0.1 because we have established an ADB reverse tunnel
-  static const String baseUrl = 'http://127.0.0.1:8000';  // ADB reverse tunnel: phone localhost -> PC backend
+  static const String baseUrl = 'http://127.0.0.1:8000';
 
   static Future<Map<String, dynamic>> register({
     required String name,

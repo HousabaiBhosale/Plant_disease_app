@@ -136,22 +136,25 @@ async def log_local_prediction(
         logger.error(f"Logging error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+class FeedbackRequest(BaseModel):
+    prediction_id: str
+    was_correct: bool
+    actual_disease: Optional[str] = None
+    comments: Optional[str] = None
+
 @router.post("/feedback")
 async def submit_feedback(
-    prediction_id: str,
-    was_correct: bool,
-    actual_disease: Optional[str] = None,
-    comments: Optional[str] = None,
+    request: FeedbackRequest,
     user_id: Optional[str] = Header(None, alias="X-User-ID")
 ):
     """Submit feedback on prediction accuracy"""
     try:
         await LoggingService.log_feedback(
-            prediction_id=prediction_id,
+            prediction_id=request.prediction_id,
             user_id=user_id,
-            was_correct=was_correct,
-            actual_disease=actual_disease,
-            comments=comments
+            was_correct=request.was_correct,
+            actual_disease=request.actual_disease,
+            comments=request.comments
         )
         
         return {

@@ -50,10 +50,10 @@ class PredictionResult {
 class TFLiteService {
   static const int    _imgSize       = 224;
   static const int    _numClasses    = 38;
-  // Raised from 85.0 to 90.0 — rejects non-plant images more aggressively
-  static const double _strictThresh  = 90.0;
-  // Raised from 15.0 to 25.0 — requires much clearer winner to accept a prediction
-  static const double _gapThresh     = 25.0;
+  // Lowered to 40.0% to allow real camera photos (which naturally score 45-60%) to be recognized
+  // rather than strictly enforcing a high threshold that causes "Unrecognized" for valid leaves.
+  static const double _strictThresh  = 40.0;
+  static const double _gapThresh     = 5.0;
 
   Interpreter?      _interpreter;
   Map<int, String>  _classLabels = {};
@@ -83,11 +83,19 @@ class TFLiteService {
       throw Exception('Model not loaded. Call loadModel() first.');
     }
 
-    // ── 1. Decode & resize ─────────────────────────────────────
+    // ── 1. Decode, Crop, & Resize ──────────────────────────────
     final bytes    = await imageFile.readAsBytes();
     final original = img.decodeImage(bytes);
     if (original == null) throw Exception('Could not decode image.');
-    final resized = img.copyResize(original, width: _imgSize, height: _imgSize);
+
+    // Crop center square (since the user targets the leaf in a square frame)
+    final int size = original.width < original.height ? original.width : original.height;
+    final int x = (original.width - size) ~/ 2;
+    final int y = (original.height - size) ~/ 2;
+    final cropped = img.copyCrop(original, x: x, y: y, width: size, height: size);
+
+    // Fast resize without heavy linear interpolation to prevent app freezing/crashing
+    final resized = img.copyResize(cropped, width: _imgSize, height: _imgSize);
 
     // ── 2. Build input as Float32List (CRITICAL FIX) ───────────
     // Shape: [1, 224, 224, 3]  dtype: float32
