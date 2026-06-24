@@ -50,10 +50,10 @@ class PredictionResult {
 class TFLiteService {
   static const int    _imgSize       = 224;
   static const int    _numClasses    = 38;
-  // Lowered to 40.0% to allow real camera photos (which naturally score 45-60%) to be recognized
-  // rather than strictly enforcing a high threshold that causes "Unrecognized" for valid leaves.
-  static const double _strictThresh  = 40.0;
-  static const double _gapThresh     = 5.0;
+  // Increased to 65.0% to strictly reject out-of-distribution images like laptops or blankets.
+  // We also require a 15% gap between the top prediction and the second best.
+  static const double _strictThresh  = 65.0;
+  static const double _gapThresh     = 15.0;
 
   Interpreter?      _interpreter;
   Map<int, String>  _classLabels = {};
@@ -104,9 +104,27 @@ class TFLiteService {
     final inputBuffer = Float32List(inputSize);
 
     int idx = 0;
+    int plantPixels = 0;
     for (int y = 0; y < _imgSize; y++) {
       for (int x = 0; x < _imgSize; x++) {
         final pixel = resized.getPixel(x, y);
+        
+        // STRICT Leaf Heuristic: Leaves are predominantly Green, Yellow, or Brown.
+        // We require minimum saturation to reject greys (keyboards, laptops).
+        // Green must be higher than Blue (rejects purple/blue/grey).
+        // Red shouldn't massively overpower Green (rejects pure red/pink blankets).
+        int r = pixel.r.toInt();
+        int g = pixel.g.toInt();
+        int b = pixel.b.toInt();
+        
+        int pMax = r > g ? (r > b ? r : b) : (g > b ? g : b);
+        int pMin = r < g ? (r < b ? r : b) : (g < b ? g : b);
+        int saturation = pMax - pMin;
+
+        if (saturation > 20 && g > b + 5 && r < g + 60 && (r + g + b) > 60) {
+          plantPixels++;
+        }
+
         inputBuffer[idx++] = pixel.r.toDouble(); // 0–255, no division
         inputBuffer[idx++] = pixel.g.toDouble();
         inputBuffer[idx++] = pixel.b.toDouble();
@@ -140,7 +158,16 @@ class TFLiteService {
 
     final confidence = probs[top1] * 100.0;
     final probGap    = (probs[top1] - probs[top2]) * 100.0;
-    final isUnknown  = confidence < _strictThresh || probGap < _gapThresh;
+    
+    // Determine if it's an invalid/unknown image
+    bool isUnknown = confidence < _strictThresh || probGap < _gapThresh;
+    
+    // Apply Leaf Heuristic: If less than 15% of the image looks like plant matter, reject it.
+    // This prevents random objects (like laptop keyboards) from being classified as diseases.
+    final double plantRatio = plantPixels / (_imgSize * _imgSize);
+    if (plantRatio < 0.15) {
+      isUnknown = true;
+    }
 
     final rawName   = _classLabels[top1] ?? 'Unknown___Unknown';
     String plantName   = rawName;

@@ -289,17 +289,20 @@ async def get_model_metrics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/dataset-info")
-async def get_dataset_info():
+async def get_dataset_info(days: int = Query(7, ge=1, le=30)):
     """Get real dataset stats from MongoDB predictions collection"""
     try:
         predictions_collection = get_predictions_collection()
         feedback_collection = get_feedback_collection()
 
-        total_predictions = await predictions_collection.count_documents({})
-        total_feedback = await feedback_collection.count_documents({})
+        threshold = datetime.utcnow() - timedelta(days=days)
+
+        total_predictions = await predictions_collection.count_documents({"created_at": {"$gte": threshold}})
+        total_feedback = await feedback_collection.count_documents({"created_at": {"$gte": threshold}})
 
         # Unique disease classes detected in real scans
         classes_pipeline = [
+            {"$match": {"created_at": {"$gte": threshold}}},
             {"$group": {"_id": "$predicted_disease"}},
             {"$count": "total"}
         ]
@@ -308,6 +311,7 @@ async def get_dataset_info():
 
         # Unique farmers contributing scan data
         users_pipeline = [
+            {"$match": {"created_at": {"$gte": threshold}}},
             {"$group": {"_id": "$user_id"}},
             {"$count": "total"}
         ]

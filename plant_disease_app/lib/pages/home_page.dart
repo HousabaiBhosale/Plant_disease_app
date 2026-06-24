@@ -59,16 +59,16 @@ class ScanRecord {
 
   String get emoji {
     final p = plantName.toLowerCase();
-    if (p.contains('tomato'))     return 'ðŸ…';
+    if (p.contains('tomato'))     return '🍅';
     if (p.contains('corn'))       return '🌽';
-    if (p.contains('apple'))      return 'ðŸŽ';
-    if (p.contains('grape'))      return 'ðŸ‡';
-    if (p.contains('potato'))     return 'ðŸ¥”';
-    if (p.contains('pepper'))     return 'ðŸ«‘';
-    if (p.contains('peach'))      return 'ðŸ‘';
-    if (p.contains('cherry'))     return 'ðŸ’';
-    if (p.contains('strawberry')) return 'ðŸ“';
-    if (p.contains('orange'))     return 'ðŸŠ';
+    if (p.contains('apple'))      return '🍎';
+    if (p.contains('grape'))      return '🍇';
+    if (p.contains('potato'))     return '🥔';
+    if (p.contains('pepper'))     return '🫑';
+    if (p.contains('peach'))      return '🍑';
+    if (p.contains('cherry'))     return '🍒';
+    if (p.contains('strawberry')) return '🍓';
+    if (p.contains('orange'))     return '🍊';
     return '🌿';
   }
 
@@ -95,6 +95,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _idx = 0;
+  int _refreshCounter = 0;
   late AnimationController _fabAnim;
 
   @override
@@ -112,7 +113,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return Consumer<LanguageService>(
       builder: (context, lang, _) {
         final pages = [
-          const _HomeTab(),
+          _HomeTab(refreshKey: _refreshCounter),
           const LibraryPage(),
           const _ProfileTab(),
         ];
@@ -142,7 +143,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       child: child,
                     ),
                   ),
-                ).then((_) => setState(() {})),
+                ).then((_) => setState(() { _refreshCounter++; })),
               ),
             ),
             floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -283,7 +284,8 @@ class _NavItem extends StatelessWidget {
 // HOME TAB
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  final int refreshKey;
+  const _HomeTab({this.refreshKey = 0});
   @override
   State<_HomeTab> createState() => _HomeTabState();
 }
@@ -294,6 +296,14 @@ class _HomeTabState extends State<_HomeTab> {
 
   @override
   void initState() { super.initState(); _loadScans(); }
+
+  @override
+  void didUpdateWidget(_HomeTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshKey != widget.refreshKey) {
+      _loadScans();
+    }
+  }
 
   Future<void> _loadScans() async {
     try {
@@ -317,7 +327,7 @@ class _HomeTabState extends State<_HomeTab> {
           confidence: confidence * 100,
           severity: confidence > 0.85 ? 'High' : confidence > 0.6 ? 'Medium' : 'Low',
           scannedAt: r['created_at'] != null
-              ? DateTime.tryParse(r['created_at'])?.toLocal() ?? DateTime.now()
+              ? DateTime.tryParse(r['created_at'].toString() + (r['created_at'].toString().endsWith('Z') ? '' : 'Z'))?.toLocal() ?? DateTime.now()
               : DateTime.now(),
         );
       }).toList();
