@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../services/tflite_service.dart';
 import '../services/api_service.dart';
+import '../services/prediction_history_service.dart';
 import 'home_page.dart' show AppColors;
 import 'package:provider/provider.dart';
 import '../services/language_service.dart';
@@ -115,6 +116,17 @@ class _ScannerPageState extends State<ScannerPage>
         rawCode = "${result.plantName.replaceAll(' ', '_')}___${result.diseaseName.replaceAll(' ', '_')}";
       }
       
+      // Save locally first so scan history is ALWAYS preserved on device
+      final nowStr = DateTime.now().toUtc().toIso8601String();
+      await PredictionHistoryService.saveLocalHistoryItem({
+        'id': 'local_${DateTime.now().millisecondsSinceEpoch}',
+        'predicted_disease': rawCode,
+        'plant_name': result.isUnknown ? 'Unknown' : result.plantName,
+        'confidence': result.confidence / 100.0,
+        'created_at': nowStr,
+        'image_path': savedPath,
+      });
+
       // Step 4: Log to backend (THIS IS CRITICAL)
       final logged = await ApiService.logLocalPrediction(
         diseaseCode: rawCode,

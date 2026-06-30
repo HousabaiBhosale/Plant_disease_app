@@ -1,0 +1,13 @@
+// backend 
+cd c:\Users\HP\PlantDiseaseApp\plant_disease_backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+
+//react dashboard
+cd c:\Users\HP\PlantDiseaseApp\plant-disease-dashboard
+npm start
+
+//flutter app
+cd c:\Users\HP\PlantDiseaseApp\plant_disease_app
+flutter run
+

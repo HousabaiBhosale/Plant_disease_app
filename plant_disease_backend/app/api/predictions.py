@@ -97,6 +97,7 @@ async def predict_disease(
 async def log_local_prediction(
     request: LocalPredictionRequest,
     user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     device_info: Optional[str] = Header(None, alias="X-Device-Info")
 ):
     """
@@ -104,6 +105,17 @@ async def log_local_prediction(
     This is the key hybrid endpoint - logs local inferences
     """
     try:
+        if not user_id and authorization and authorization.startswith("Bearer "):
+            try:
+                from jose import jwt
+                import os
+                token = authorization.split(" ")[1]
+                secret = os.getenv("SECRET_KEY", "your-secret-key-change-this")
+                payload = jwt.decode(token, secret, algorithms=["HS256"])
+                user_id = payload.get("sub")
+            except Exception as e:
+                logger.warning(f"Could not decode Authorization token in log-local: {e}")
+
         device_dict = {}
         if device_info:
             try:

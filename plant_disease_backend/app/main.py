@@ -71,7 +71,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "database": "connected" if MongoDB.database else "disconnected",
-        "model": "loaded" if ml_service.model else "not_loaded",
+        "database": "connected" if MongoDB.database is not None else "disconnected",
+        "model": "loaded" if ml_service.model is not None else "not_loaded",
         "timestamp": datetime.utcnow().isoformat()
     }
