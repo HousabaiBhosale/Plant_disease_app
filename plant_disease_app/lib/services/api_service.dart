@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:device_info_plus/device_info_plus.dart';
 import 'auth_service.dart';
+import 'location_service.dart';
 
 class ApiService {
  static String get baseUrl => AuthService.baseUrl;
@@ -20,10 +21,42 @@ class ApiService {
           safeData[key] = value.toString();
         }
       });
+      try {
+        final locationData = await LocationService.getCurrentLocationData().timeout(const Duration(seconds: 1));
+        safeData.addAll(locationData);
+      } catch (_) {}
       return safeData;
     } catch (e) {
       return {'platform': Platform.operatingSystem, 'error': e.toString()};
     }
+  }
+  
+  static Future<void> saveLocationToBackend() async {
+    try {
+      final locData = await LocationService.getCurrentLocationData();
+      if (locData['location_access'] == true && locData['latitude'] != null) {
+        final token = await AuthService.getToken();
+        final user = await AuthService.getCurrentUser();
+        final userId = user != null ? (user['id'] ?? user['email'] ?? 'anonymous') : 'anonymous';
+        
+        final body = jsonEncode({
+          'user_id': userId.toString(),
+          'latitude': locData['latitude'].toString(),
+          'longitude': locData['longitude'].toString(),
+          'city': locData['city'] ?? 'Bagalkot',
+          'state': locData['state'] ?? 'Karnataka',
+          'country': locData['country'] ?? 'India',
+        });
+
+        final headers = {'Content-Type': 'application/json'};
+        if (token != null) headers['Authorization'] = 'Bearer $token';
+
+        // Send to FastAPI backend
+        await http.post(Uri.parse('$baseUrl/api/auth/save-location'), headers: headers, body: body).timeout(const Duration(seconds: 2));
+        // Also send directly to PHP dashboard save_location.php if available
+        await http.post(Uri.parse('http://localhost:8080/save_location.php'), headers: headers, body: body).timeout(const Duration(seconds: 2));
+      }
+    } catch (_) {}
   }
   
   static Future<Map<String, dynamic>> logLocalPrediction({
@@ -33,6 +66,9 @@ class ApiService {
     required double processingTimeMs,
   }) async {
     try {
+      // Step 3: Trigger Swiggy/Uber-style location sync in background whenever a prediction is made
+      saveLocationToBackend();
+
       final token = await AuthService.getToken();
       final user = await AuthService.getCurrentUser();
       final userId = user != null ? user['id'] : null;
@@ -64,7 +100,7 @@ class ApiService {
           'image_name': imageName,
           'processing_time_ms': processingTimeMs,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 2));
       print('📥 Response status: ${response.statusCode}');
       print('📥 Response body: ${response.body}');
       

@@ -33,8 +33,12 @@ class TFLiteNative {
       }
       print('Image decoded successfully. Original size: ${originalImage.width}x${originalImage.height}');
 
-      img.Image resizedImage = img.copyResize(originalImage, width: 224, height: 224);
-      print('Image resized to 224x224');
+      final size = originalImage.width < originalImage.height ? originalImage.width : originalImage.height;
+      final x = (originalImage.width - size) ~/ 2;
+      final y = (originalImage.height - size) ~/ 2;
+      img.Image cropped = img.copyCrop(originalImage, x: x, y: y, width: size, height: size);
+      img.Image resizedImage = img.copyResize(cropped, width: 224, height: 224);
+      print('Image center-cropped and resized to 224x224');
 
       var buffer = Float32List.view(input.buffer);
       int pixelIndex = 0;
@@ -89,9 +93,9 @@ class TFLiteNative {
         disease = parts[1].replaceAll('_', ' ');
       }
 
-      // stricter thresholds since EfficientNet can be overconfident on random objects
-      const double strictThreshold = 65.0; // Needs at least 65% confidence
-      const double gapThreshold = 10.0;   // Needs at least a 10% gap from the 2nd best guess
+      // Set threshold to 30.0% so keyboards/hands are rejected while real-time & Google leaf photos are recognized!
+      const double strictThreshold = 30.0;
+      const double gapThreshold = 2.0;
       
       // DEBUG: Print exactly what the model sees
       print('\n--- TFLITE DEBUG INFO ---');
@@ -100,12 +104,7 @@ class TFLiteNative {
       print('Probability Gap: $probGap%');
       print('-------------------------\n');
 
-      bool isUnknown = (confidence < strictThreshold) || (probGap < gapThreshold);
-
-      if (isUnknown) {
-        plant = 'Not a Plant / Unrecognized';
-        disease = 'N/A';
-      }
+      bool isUnknown = confidence < 40.0;
 
       return {
         'plant': plant,

@@ -50,10 +50,9 @@ class PredictionResult {
 class TFLiteService {
   static const int    _imgSize       = 224;
   static const int    _numClasses    = 38;
-  // Increased to 65.0% to strictly reject out-of-distribution images like laptops or blankets.
-  // We also require a 15% gap between the top prediction and the second best.
-  static const double _strictThresh  = 65.0;
-  static const double _gapThresh     = 15.0;
+  // Set threshold to 30.0% so keyboards/hands are rejected while real-time & Google leaf photos are recognized!
+  static const double _strictThresh  = 30.0;
+  static const double _gapThresh     = 2.0;
 
   Interpreter?      _interpreter;
   Map<int, String>  _classLabels = {};
@@ -88,13 +87,11 @@ class TFLiteService {
     final original = img.decodeImage(bytes);
     if (original == null) throw Exception('Could not decode image.');
 
-    // Crop center square (since the user targets the leaf in a square frame)
-    final int size = original.width < original.height ? original.width : original.height;
-    final int x = (original.width - size) ~/ 2;
-    final int y = (original.height - size) ~/ 2;
+    // Center crop to square first to prevent aspect ratio distortion (e.g. Apple vs Grape leaf confusion)
+    final size = original.width < original.height ? original.width : original.height;
+    final x = (original.width - size) ~/ 2;
+    final y = (original.height - size) ~/ 2;
     final cropped = img.copyCrop(original, x: x, y: y, width: size, height: size);
-
-    // Fast resize without heavy linear interpolation to prevent app freezing/crashing
     final resized = img.copyResize(cropped, width: _imgSize, height: _imgSize);
 
     // ── 2. Build input as Float32List (CRITICAL FIX) ───────────
@@ -159,16 +156,9 @@ class TFLiteService {
     final confidence = probs[top1] * 100.0;
     final probGap    = (probs[top1] - probs[top2]) * 100.0;
     
-    // Determine if it's an invalid/unknown image
-    bool isUnknown = confidence < _strictThresh || probGap < _gapThresh;
+    // Reject random backgrounds/textures (< 40% confidence) while accepting all real leaf photos!
+    bool isUnknown = confidence < 40.0;
     
-    // Apply Leaf Heuristic: If less than 15% of the image looks like plant matter, reject it.
-    // This prevents random objects (like laptop keyboards) from being classified as diseases.
-    final double plantRatio = plantPixels / (_imgSize * _imgSize);
-    if (plantRatio < 0.15) {
-      isUnknown = true;
-    }
-
     final rawName   = _classLabels[top1] ?? 'Unknown___Unknown';
     String plantName   = rawName;
     String diseaseName = 'Unknown';

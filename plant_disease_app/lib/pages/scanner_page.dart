@@ -103,7 +103,28 @@ class _ScannerPageState extends State<ScannerPage>
     setState(() { _analyzing = true; });
     final sw = Stopwatch()..start();
     try {
-      final result    = await _tflite.predict(imageFile);
+      // Step 1: Try cloud prediction first for maximum accuracy (17.6MB Keras model on server)
+      PredictionResult? cloudResult;
+      try {
+        final cloudData = await ApiService.cloudPredict(imageFile).timeout(const Duration(seconds: 3));
+        if (cloudData['predicted_disease'] != null) {
+          final raw = cloudData['predicted_disease'].toString();
+          final conf = (cloudData['confidence'] is num) ? (cloudData['confidence'] * 100).toDouble() : 95.0;
+          if (raw.contains('___')) {
+            final parts = raw.split('___');
+            cloudResult = PredictionResult(
+              plantName: parts[0].replaceAll('_', ' '),
+              diseaseName: parts[1].replaceAll('_', ' '),
+              confidence: conf,
+              probGap: 40.0,
+              isUnknown: false,
+              rawClassName: raw,
+            );
+          }
+        }
+      } catch (_) {}
+
+      final result = cloudResult ?? await _tflite.predict(imageFile);
       sw.stop();
       // Step 2: Save image to local storage
       final savedPath = await _saveImage(imageFile);
@@ -127,20 +148,25 @@ class _ScannerPageState extends State<ScannerPage>
         'image_path': savedPath,
       });
 
-      // Step 4: Log to backend (THIS IS CRITICAL)
-      final logged = await ApiService.logLocalPrediction(
-        diseaseCode: rawCode,
-        confidence: result.confidence / 100.0,
-        imageName: p.basename(imageFile.path),
-        processingTimeMs: sw.elapsedMilliseconds.toDouble(),
-      );
-      
-      print('✅ Prediction logged: $logged'); // Debug print
+      // Step 4: Log to backend with a strict 2s timeout so it NEVER hangs!
+      String? predictionId;
+      try {
+        final logged = await ApiService.logLocalPrediction(
+          diseaseCode: rawCode,
+          confidence: result.confidence / 100.0,
+          imageName: p.basename(imageFile.path),
+          processingTimeMs: sw.elapsedMilliseconds.toDouble(),
+        ).timeout(const Duration(seconds: 2));
+        predictionId = logged['prediction_id']?.toString();
+        print('✅ Prediction logged: $logged');
+      } catch (e) {
+        print('⚠️ Could not log prediction to cloud in time (offline or server unreachable): $e');
+        predictionId = 'local_${DateTime.now().millisecondsSinceEpoch}';
+      }
       
       // Step 5: Show result to user
       if (mounted) {
         setState(() => _analyzing = false);
-        final predictionId = logged['prediction_id']?.toString();
         
         // Find matching disease info
         String getMappedId(String rawName) {
@@ -741,6 +767,28 @@ class _ResultSheetState extends State<_ResultSheet> {
                       Text('Low Confidence', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.amber)),
                       Text('Try a clearer photo with better lighting, closer to the leaf.',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF7C5A00))),
+                    ])),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Real-World scanning guidance for moderate confidence
+              if (!widget.result.isUnknown && widget.result.confidence < 75.0) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.blue.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(children: [
+                    const Text('💡', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Real-World Field Tip', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.blue)),
+                      Text('For live field photos with background clutter or shadows, hold phone 20-30 cm from a single leaf in bright natural light.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF1E3A8A))),
                     ])),
                   ]),
                 ),

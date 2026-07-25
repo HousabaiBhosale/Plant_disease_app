@@ -1,28 +1,14 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
 from enum import Enum
-
 from pydantic import BaseModel, Field, field_validator, EmailStr, model_validator
-from bson import ObjectId
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-class PyObjectId(str):
-    """Serialize MongoDB ObjectId as a plain string in JSON responses."""
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v, *args):
-        if isinstance(v, ObjectId):
-            return str(v)
-        if isinstance(v, str) and ObjectId.is_valid(v):
-            return v
-        raise ValueError(f"Invalid ObjectId: {v!r}")
+# Removed PyObjectId as we are using MySQL with Integer primary keys.
+# We will cast Integer to str in Pydantic to maintain API backward compatibility.
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +35,7 @@ class PredictionLog(BaseModel):
     Written to DB every time a disease scan is performed.
     Supports both on-device (TFLite) and cloud inference modes.
     """
-    id: Optional[PyObjectId]    = Field(default=None, alias="_id")
+    id: Optional[int]    = None
     user_id: Optional[str]      = None   # None for anonymous scans
     image_name: str
     predicted_disease: str
@@ -81,12 +67,21 @@ class PredictionLog(BaseModel):
             self.plant_name = self.predicted_disease.split("___")[0].replace("_", " ")
         return self
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class PredictionResponse(BaseModel):
     """Returned to the Flutter app / API consumers — never exposes raw DB fields."""
     id: str
+    
+    @model_validator(mode="before")
+    def cast_id_to_str(cls, values):
+        if getattr(values, "id", None) is not None:
+            # If it's an ORM object
+            pass
+        elif isinstance(values, dict) and "id" in values:
+            values["id"] = str(values["id"])
+        return values
     predicted_disease: str
     plant_name: str
     confidence: float
@@ -96,6 +91,8 @@ class PredictionResponse(BaseModel):
     created_at: datetime
     recommendation: Optional[str] = None   # filled in by the recommendation service
 
+    model_config = {"from_attributes": True}
+
 
 # ---------------------------------------------------------------------------
 # Feedback
@@ -103,7 +100,7 @@ class PredictionResponse(BaseModel):
 
 class UserFeedback(BaseModel):
     """User correction / rating after a prediction."""
-    id: Optional[PyObjectId]  = Field(default=None, alias="_id")
+    id: Optional[int]  = None
     prediction_id: str
     user_id: Optional[str]    = None
     was_correct: bool
@@ -117,7 +114,7 @@ class UserFeedback(BaseModel):
         # Removed strict enforcement: Flutter app may submit feedback without actual_disease
         return self
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +126,7 @@ class ModelAnalytics(BaseModel):
     One document per calendar day (unique index on `date`).
     Upserted by the analytics worker, not created directly by user requests.
     """
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    id: Optional[int] = None
     date: str                  # ISO date "2025-03-27"
     total_predictions: int     = 0
     local_predictions: int     = 0
@@ -149,7 +146,7 @@ class ModelAnalytics(BaseModel):
             raise ValueError("date must be ISO format YYYY-MM-DD")
         return v
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class AnalyticsResponse(BaseModel):
@@ -159,6 +156,8 @@ class AnalyticsResponse(BaseModel):
     avg_confidence: float
     accuracy_rate: Optional[float] = None  # correct / (correct + incorrect)
     top_diseases: list[Dict[str, Any]] = []  # [{"disease": ..., "count": ...}]
+
+    model_config = {"from_attributes": True}
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +182,7 @@ class UserLogin(BaseModel):
 
 class UserInDB(BaseModel):
     """Internal representation — never serialise password_hash to responses."""
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    id: Optional[int] = None
     name: str
     email: str
     password_hash: str
@@ -193,7 +192,7 @@ class UserInDB(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 class UserResponse(BaseModel):
@@ -205,6 +204,15 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
 
+    model_config = {"from_attributes": True}
+    
+    @model_validator(mode="before")
+    def cast_id_to_str(cls, values):
+        if getattr(values, "id", None) is not None:
+            # ORM object, let it pass, Pydantic will cast integer to str
+            pass
+        return values
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -214,11 +222,11 @@ class TokenResponse(BaseModel):
 
 class TokenBlacklist(BaseModel):
     """Stores invalidated JWTs until they naturally expire."""
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    id: Optional[int] = None
     token: str
     expires_at: datetime
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
 
 # ---------------------------------------------------------------------------

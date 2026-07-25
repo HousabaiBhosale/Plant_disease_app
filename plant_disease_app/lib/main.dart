@@ -6,9 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
+import 'pages/location_permission_page.dart';
 import 'services/notification_service.dart';
+import 'services/location_service.dart';
 import 'providers/auth_provider.dart';
 import 'services/language_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -91,9 +94,52 @@ class AuthWrapper extends StatelessWidget {
     }
     
     if (authProvider.isAuthenticated) {
-      return const HomePage();
+      return const OnboardingWrapper();
     }
     
     return LoginPage();
+  }
+}
+
+class OnboardingWrapper extends StatefulWidget {
+  const OnboardingWrapper({super.key});
+
+  @override
+  State<OnboardingWrapper> createState() => _OnboardingWrapperState();
+}
+
+class _OnboardingWrapperState extends State<OnboardingWrapper> {
+  bool _isLoading = true;
+  bool _showOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('location_onboarding_done') ?? false;
+    final enabled = await LocationService.isLocationEnabled();
+    if (mounted) {
+      setState(() {
+        _showOnboarding = !done && !enabled;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF1E8049))),
+      );
+    }
+    if (_showOnboarding) {
+      return const LocationPermissionPage();
+    }
+    return const HomePage();
   }
 }

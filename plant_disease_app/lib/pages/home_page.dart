@@ -6,10 +6,14 @@ import 'package:image_picker/image_picker.dart';
 import '../services/prediction_history_service.dart';
 import '../services/profile_service.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
+import 'package:geolocator/geolocator.dart';
+import '../services/api_service.dart';
 import 'scanner_page.dart';
 import 'notification_settings_page.dart';
 import 'library_page.dart';
 import 'login_page.dart';
+import 'location_permission_page.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../services/language_service.dart';
@@ -102,6 +106,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _fabAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
+    // Step 1 & 2: Swiggy/Uber/Zomato style location check on app startup
+    LocationService.requestPermission().then((granted) {
+      if (granted) {
+        ApiService.saveLocationToBackend();
+      }
+    });
   }
 
   @override
@@ -354,6 +364,8 @@ class _HomeTabState extends State<_HomeTab> {
               _QuickActions(onScan: () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const ScannerPage())
               ).then((_) => _loadScans())),
+              const SizedBox(height: 14),
+              const _HomeLocationBanner(),
               const SizedBox(height: 22),
               _SectionHeader(
                 title: Provider.of<LanguageService>(context).t('recent_scans'),
@@ -608,6 +620,126 @@ class _QAction extends StatelessWidget {
       ]),
     ),
   ));
+}
+
+// ── Home Location Access Banner ────────────────────────────────
+class _HomeLocationBanner extends StatefulWidget {
+  const _HomeLocationBanner();
+  @override
+  State<_HomeLocationBanner> createState() => _HomeLocationBannerState();
+}
+
+class _HomeLocationBannerState extends State<_HomeLocationBanner> {
+  bool _enabled = false;
+  String _locationText = 'Checking GPS...';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    final enabled = await LocationService.isLocationEnabled();
+    String locStr = 'Not Enabled';
+    if (enabled) {
+      final data = await LocationService.getCurrentLocationData();
+      locStr = data['location']?.toString() ?? 'GPS Active';
+    }
+    if (mounted) {
+      setState(() {
+        _enabled = enabled;
+        _locationText = locStr;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _enabled ? () async {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('📍 Updating GPS coordinates...'), duration: Duration(seconds: 1)));
+        }
+        await LocationService.updateCurrentLocation();
+        await _checkStatus();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Location updated: $_locationText')));
+        }
+      } : null,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _enabled ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _enabled ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A), width: 1.5),
+          boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3))],
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _enabled ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(
+                children: [
+                  Text(_enabled ? '📍 GPS Field Tagging Active' : '📍 Allow Location Access',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: _enabled ? const Color(0xFF065F46) : const Color(0xFF92400E))),
+                  if (_enabled) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('✓ Connected', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 11, color: const Color(0xFF047857))),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(_enabled ? 'Location: $_locationText (Tap to refresh)' : 'Enable live GPS tagging for real-world field monitoring & admin dashboard tracking.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: _enabled ? const Color(0xFF047857) : const Color(0xFFB45309))),
+            ]),
+          ),
+          const SizedBox(width: 10),
+          Switch.adaptive(
+            value: _enabled,
+            activeColor: const Color(0xFF10B981),
+            onChanged: (val) async {
+              if (val) {
+                LocationPermission permission = await Geolocator.checkPermission();
+                if (permission == LocationPermission.denied) {
+                  permission = await Geolocator.requestPermission();
+                }
+                if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+                  await LocationService.setLocationEnabled(true);
+                } else if (permission == LocationPermission.deniedForever) {
+                  await Geolocator.openAppSettings();
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Location permission required for GPS field tagging')),
+                    );
+                  }
+                }
+              } else {
+                await LocationService.setLocationEnabled(false);
+              }
+              await _checkStatus();
+            },
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 // â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -867,6 +999,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   int  _totalScans = 0;
   int  _cropsSaved = 0;
   bool _loading    = true;
+  bool _locationAccess = false;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -874,7 +1007,28 @@ class _ProfileTabState extends State<_ProfileTab> {
   Future<void> _load() async {
     final data  = await _profile.loadProfile();
     final total = await PredictionHistoryService.getHistoryCount();
-    if (mounted) setState(() { _data = data; _totalScans = total; _cropsSaved = total; _loading = false; });
+    final locEnabled = await LocationService.isLocationEnabled();
+    if (mounted) setState(() { _data = data; _totalScans = total; _cropsSaved = total; _locationAccess = locEnabled; _loading = false; });
+  }
+
+  Future<void> _toggleLocation(bool val) async {
+    if (val) {
+      final granted = await LocationService.requestPermission();
+      if (mounted) {
+        setState(() => _locationAccess = granted);
+        if (granted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Location access enabled! GPS coordinates will be sent with scans.')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Location permission denied.')));
+        }
+      }
+    } else {
+      await LocationService.setLocationEnabled(false);
+      if (mounted) {
+        setState(() => _locationAccess = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location access disabled.')));
+      }
+    }
   }
 
   void _openEdit() {
@@ -1091,6 +1245,8 @@ class _ProfileTabState extends State<_ProfileTab> {
             ),
             _MenuTile(iconBg: const Color(0xFFEDE9FE), icon: Icons.location_on_rounded,
               label: lang.t('location_label'), sub: location, iconColor: const Color(0xFF7C3AED), onTap: _openEdit),
+            _SwitchMenuTile(iconBg: const Color(0xFFD1FAE5), icon: Icons.my_location_rounded,
+              label: 'Allow Location Access', sub: 'Attach GPS coordinates to field scans', iconColor: AppColors.g600, value: _locationAccess, onChanged: _toggleLocation),
           ]),
 
           const SizedBox(height: 12),
@@ -1161,7 +1317,7 @@ class _PStatDivider extends StatelessWidget {
 }
 
 class _MenuGroup extends StatelessWidget {
-  final List<_MenuTile> items;
+  final List<Widget> items;
   const _MenuGroup({required this.items});
   @override
   Widget build(BuildContext context) => Container(
@@ -1205,6 +1361,34 @@ class _MenuTile extends StatelessWidget {
         ),
       ]),
     ),
+  );
+}
+
+class _SwitchMenuTile extends StatelessWidget {
+  final Color iconBg, iconColor; final IconData icon;
+  final String label, sub; final bool value; final ValueChanged<bool> onChanged;
+  const _SwitchMenuTile({required this.iconBg, required this.icon, required this.label,
+    required this.sub, required this.value, required this.onChanged, required this.iconColor});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    child: Row(children: [
+      Container(
+        width: 38, height: 38,
+        decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, size: 18, color: iconColor),
+      ),
+      const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.text)),
+        Text(sub, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSoft)),
+      ])),
+      Switch(
+        value: value,
+        onChanged: onChanged,
+        activeColor: AppColors.g600,
+      ),
+    ]),
   );
 }
 

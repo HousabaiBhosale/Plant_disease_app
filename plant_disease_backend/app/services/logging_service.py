@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 import logging
-from app.database.mongodb import get_predictions_collection, get_feedback_collection, get_analytics_collection
-from app.database.models import PredictionLog, UserFeedback
+from app.database.schema import PredictionLog, UserFeedback, ModelAnalytics
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +11,7 @@ class LoggingService:
     
     @staticmethod
     async def log_prediction(
+        db: AsyncSession,
         user_id: Optional[str],
         image_name: str,
         predicted_disease: str,
@@ -20,71 +22,84 @@ class LoggingService:
     ) -> Optional[str]:
         """Log a prediction"""
         try:
+            # Set inference_mode correctly based on local_inference boolean flag
+            # Assuming 'local_inference' means 'local' and False means 'cloud' based on usage
+            inference_mode = "local" if local_inference else "cloud"
+            
+            # Auto-populate plant_name
+            plant_name = ""
+            if "___" in predicted_disease:
+                plant_name = predicted_disease.split("___")[0].replace("_", " ")
+
             prediction_log = PredictionLog(
                 user_id=user_id,
                 image_name=image_name,
                 predicted_disease=predicted_disease,
+                plant_name=plant_name,
                 confidence=confidence,
-                local_inference=local_inference,
+                inference_mode=inference_mode,
+                top_predictions={},  # Or pass from caller
+                status="complete",
                 processing_time_ms=processing_time_ms,
                 device_info=device_info
             )
             
-            collection = get_predictions_collection()
-            result = await collection.insert_one(prediction_log.dict())
+            db.add(prediction_log)
+            await db.flush() # To get the ID
             
             # Update daily analytics
-            await LoggingService.update_daily_analytics(prediction_log)
+            await LoggingService.update_daily_analytics(db, prediction_log, local_inference)
             
-            logger.info(f"Prediction logged: {result.inserted_id}")
-            return str(result.inserted_id)
+            await db.commit()
+            
+            logger.info(f"Prediction logged: {prediction_log.id}")
+            return str(prediction_log.id)
             
         except Exception as e:
+            await db.rollback()
             logger.error(f"Failed to log prediction: {e}")
             return None
     
     @staticmethod
-    async def update_daily_analytics(prediction: PredictionLog):
+    async def update_daily_analytics(db: AsyncSession, prediction: PredictionLog, local_inference: bool):
         """Update daily analytics counts"""
         try:
             # Update daily analytics
-            date_str = prediction.created_at.strftime("%Y-%m-%d")
-            collection = get_analytics_collection()
+            date_str = prediction.created_at.strftime("%Y-%m-%d") if prediction.created_at else datetime.utcnow().strftime("%Y-%m-%d")
             
             # Find current analytics for the day
-            current = await collection.find_one({"date": date_str})
+            result = await db.execute(select(ModelAnalytics).filter(ModelAnalytics.date == date_str))
+            current = result.scalars().first()
             
             if current:
-                total = current.get("total_predictions", 0)
-                old_avg = current.get("avg_confidence", 0)
+                total = current.total_predictions
+                old_avg = current.avg_confidence
                 # Calculate running average
                 new_avg = (old_avg * total + prediction.confidence) / (total + 1)
                 
-                await collection.update_one(
-                    {"date": date_str},
-                    {
-                        "$inc": {
-                            "total_predictions": 1,
-                            "local_predictions": 1 if prediction.local_inference else 0,
-                            "cloud_predictions": 0 if prediction.local_inference else 1
-                        },
-                        "$set": {"avg_confidence": new_avg}
-                    }
-                )
+                current.total_predictions += 1
+                if local_inference:
+                    current.local_predictions += 1
+                else:
+                    current.cloud_predictions += 1
+                current.avg_confidence = new_avg
             else:
                 # First prediction of the day
-                await collection.insert_one({
-                    "date": date_str,
-                    "total_predictions": 1,
-                    "local_predictions": 1 if prediction.local_inference else 0,
-                    "cloud_predictions": 0 if prediction.local_inference else 1,
-                    "avg_confidence": prediction.confidence
-                })
+                new_analytics = ModelAnalytics(
+                    date=date_str,
+                    total_predictions=1,
+                    local_predictions=1 if local_inference else 0,
+                    cloud_predictions=0 if local_inference else 1,
+                    avg_confidence=prediction.confidence,
+                    disease_counts={}
+                )
+                db.add(new_analytics)
         except Exception as e:
             logger.error(f"Failed to update analytics: {e}")
     
     @staticmethod
     async def log_feedback(
+        db: AsyncSession,
         prediction_id: str,
         user_id: Optional[str],
         was_correct: bool,
@@ -101,8 +116,8 @@ class LoggingService:
                 comments=comments
             )
             
-            collection = get_feedback_collection()
-            await collection.insert_one(feedback.dict())
+            db.add(feedback)
+            await db.commit()
             
             logger.info(f"Feedback logged for prediction: {prediction_id}")
             

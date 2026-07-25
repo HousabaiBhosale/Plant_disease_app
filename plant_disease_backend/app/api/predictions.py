@@ -4,9 +4,12 @@ import uuid
 import logging
 from datetime import datetime
 
-from app.database.mongodb import get_predictions_collection
+from app.database.mysql_db import get_db_session
 from app.api.auth import get_current_user
 from app.database.models import PredictionResponse
+from app.database.schema import PredictionLog
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.services.ml_service import ml_service
 from app.services.recommendation_service import recommendation_service
@@ -26,7 +29,8 @@ logger = logging.getLogger(__name__)
 async def predict_disease(
     file: UploadFile = File(...),
     user_id: Optional[str] = Header(None, alias="X-User-ID"),
-    device_info: Optional[str] = Header(None, alias="X-Device-Info")
+    device_info: Optional[str] = Header(None, alias="X-Device-Info"),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """
     Predict disease from leaf image (Cloud inference)
@@ -52,6 +56,7 @@ async def predict_disease(
         
         # Log prediction (cloud inference = False for local_inference flag)
         prediction_id = await LoggingService.log_prediction(
+            db=db,
             user_id=user_id,
             image_name=file.filename,
             predicted_disease=disease_name,
@@ -98,7 +103,8 @@ async def log_local_prediction(
     request: LocalPredictionRequest,
     user_id: Optional[str] = Header(None, alias="X-User-ID"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
-    device_info: Optional[str] = Header(None, alias="X-Device-Info")
+    device_info: Optional[str] = Header(None, alias="X-Device-Info"),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """
     Endpoint for Flutter app to log TFLite predictions
@@ -126,6 +132,7 @@ async def log_local_prediction(
         
         # Log the local TFLite prediction
         prediction_id = await LoggingService.log_prediction(
+            db=db,
             user_id=user_id,
             image_name=request.image_name,
             predicted_disease=request.disease_code,
@@ -157,11 +164,13 @@ class FeedbackRequest(BaseModel):
 @router.post("/feedback")
 async def submit_feedback(
     request: FeedbackRequest,
-    user_id: Optional[str] = Header(None, alias="X-User-ID")
+    user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """Submit feedback on prediction accuracy"""
     try:
         await LoggingService.log_feedback(
+            db=db,
             prediction_id=request.prediction_id,
             user_id=user_id,
             was_correct=request.was_correct,
@@ -183,7 +192,8 @@ async def get_prediction_history(
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
     current_user: dict = Depends(get_current_user),
-    x_user_id: Optional[str] = Header(None, alias="X-User-ID")
+    x_user_id: Optional[str] = Header(None, alias="X-User-ID"),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """
     Get prediction history for the logged-in user.
@@ -191,8 +201,6 @@ async def get_prediction_history(
     to cover the case where the header user_id is used during logging.
     """
     try:
-        predictions_collection = get_predictions_collection()
-        
         # Build user_id from JWT token
         jwt_user_id = str(current_user.id) if hasattr(current_user, "id") else str(current_user.get("id") or current_user.get("_id", ""))
         
@@ -205,23 +213,21 @@ async def get_prediction_history(
         if not user_ids:
             return []
         
-        query = {"user_id": {"$in": user_ids}}
-        
-        cursor = predictions_collection.find(query).sort(
-            "created_at", -1
-        ).skip(skip).limit(limit)
+        stmt = select(PredictionLog).filter(PredictionLog.user_id.in_(user_ids)).order_by(PredictionLog.created_at.desc()).offset(skip).limit(limit)
+        result = await db.execute(stmt)
+        preds = result.scalars().all()
         
         predictions = []
-        async for pred in cursor:
+        for pred in preds:
             predictions.append(PredictionResponse(
-                id=str(pred["_id"]),
-                predicted_disease=pred["predicted_disease"],
-                plant_name=pred.get("plant_name", ""),
-                confidence=pred["confidence"],
-                top_predictions=pred.get("top_predictions", []),
-                inference_mode=pred.get("inference_mode", "local"),
-                processing_time_ms=pred.get("processing_time_ms", 0.0),
-                created_at=pred["created_at"],
+                id=str(pred.id),
+                predicted_disease=pred.predicted_disease,
+                plant_name=pred.plant_name,
+                confidence=pred.confidence,
+                top_predictions=pred.top_predictions,
+                inference_mode=pred.inference_mode,
+                processing_time_ms=pred.processing_time_ms,
+                created_at=pred.created_at,
                 recommendation=None
             ))
         
@@ -233,17 +239,20 @@ async def get_prediction_history(
 
 @router.get("/history/count")
 async def get_prediction_count(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """
     Get total prediction count for the user
     """
     try:
-        predictions_collection = get_predictions_collection()
+        from sqlalchemy import func
         user_id_str = str(current_user.id) if hasattr(current_user, "id") else str(current_user.get("id") or current_user.get("_id", ""))
-        count = await predictions_collection.count_documents(
-            {"user_id": user_id_str}
-        )
+        
+        stmt = select(func.count(PredictionLog.id)).filter(PredictionLog.user_id == user_id_str)
+        result = await db.execute(stmt)
+        count = result.scalar()
+        
         return {"total": count}
     except Exception as e:
         logger.error(f"Error getting count: {e}")
@@ -252,29 +261,29 @@ async def get_prediction_count(
 @router.delete("/history/{prediction_id}")
 async def delete_prediction(
     prediction_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """
     Delete a specific prediction from history
     """
     try:
-        from bson import ObjectId
-        
-        predictions_collection = get_predictions_collection()
         user_id_str = str(current_user.id) if hasattr(current_user, "id") else str(current_user.get("id") or current_user.get("_id", ""))
         
-        result = await predictions_collection.delete_one({
-            "_id": ObjectId(prediction_id),
-            "user_id": user_id_str  # Ensure user owns this prediction
-        })
+        try:
+            pred_id_int = int(prediction_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid prediction ID format")
+
+        stmt = select(PredictionLog).filter(PredictionLog.id == pred_id_int, PredictionLog.user_id == user_id_str)
+        result = await db.execute(stmt)
+        pred = result.scalars().first()
         
-        if result.deleted_count == 0:
-            # Maybe the user id is stored as ObjectId fallback check
-            result = await predictions_collection.delete_one({
-                "_id": ObjectId(prediction_id)
-            })
-            if result.deleted_count == 0:
-                raise HTTPException(status_code=404, detail="Prediction not found")
+        if not pred:
+            raise HTTPException(status_code=404, detail="Prediction not found")
+            
+        await db.delete(pred)
+        await db.commit()
         
         return {"message": "Prediction deleted successfully"}
         

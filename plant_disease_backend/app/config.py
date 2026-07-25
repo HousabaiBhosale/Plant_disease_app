@@ -5,9 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
-    # MongoDB
-    MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-    DATABASE_NAME: str = os.getenv("DATABASE_NAME", "plant_disease_db")
+    # MySQL
+    MYSQL_URL: str = os.getenv("MYSQL_URL", "mysql+aiomysql://root:@localhost:3306/plant_disease_db")
     
     # JWT Authentication
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-this")
