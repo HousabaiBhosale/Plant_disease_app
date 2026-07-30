@@ -9,11 +9,11 @@ Write-Host ""
 
 if (Test-Path "C:\xampp\php\php.exe") {
     Write-Host "[INFO] Using XAMPP PHP (C:\xampp\php\php.exe)..." -ForegroundColor Green
-    & "C:\xampp\php\php.exe" -S localhost:8080
+    & "C:\xampp\php\php.exe" -S 0.0.0.0:8080
 } elseif (Test-Path "C:\php\php.exe") {
     Write-Host "[INFO] Using PHP from C:\php\php.exe..." -ForegroundColor Green
-    & "C:\php\php.exe" -S localhost:8080
+    & "C:\php\php.exe" -S 0.0.0.0:8080
 } else {
     Write-Host "[INFO] Using system PATH PHP..." -ForegroundColor Green
-    php -S localhost:8080
+    php -S 0.0.0.0:8080
 }

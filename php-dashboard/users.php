@@ -154,7 +154,10 @@ async function loadUsersTracking() {
         document.getElementById('trackingTableBody').innerHTML = '<tr><td colspan="6" class="text-center text-error" style="padding: 24px;">Failed to load live tracking data. Make sure API backend is running.</td></tr>';
     }
 }
-document.addEventListener('DOMContentLoaded', loadUsersTracking);
+document.addEventListener('DOMContentLoaded', () => {
+    loadUsersTracking();
+    setInterval(loadUsersTracking, 5000); // Poll every 5 seconds for live updates
+});
 </script>
 
 <?php renderFooter(); ?>

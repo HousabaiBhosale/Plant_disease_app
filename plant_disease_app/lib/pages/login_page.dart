@@ -259,6 +259,7 @@ class _AuthPageState extends State<_AuthPage> with SingleTickerProviderStateMixi
 
   void _toggle() {
     _animCtrl.reverse().then((_) {
+      context.read<AuthProvider>().clearError();
       setState(() => _isLogin = !_isLogin);
       _animCtrl.forward();
     });

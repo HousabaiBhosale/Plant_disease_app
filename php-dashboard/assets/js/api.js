@@ -38,13 +38,20 @@ class ApiService {
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (e) { }
+
+        const isAuthError = response.status === 401 || (response.status === 403 && errorData.detail === "Not authenticated");
+
+        if (isAuthError) {
           this.setToken(null);
           if (!window.location.pathname.endsWith('login.php')) {
             window.location.href = 'login.php';
           }
         }
-        const errorData = await response.json().catch(() => ({}));
+
         throw new Error(errorData.detail || 'API request failed');
       }
 
@@ -96,7 +103,7 @@ class ApiService {
   async getAdminStats(days = 30) {
     return this.getStats(days);
   }
-  
+
   async getDailyAnalytics(days = 30) {
     return this.fetchApi(`/admin/analytics/daily?days=${days}`);
   }
@@ -146,7 +153,7 @@ class ApiService {
     formData.append('file', file);
     formData.append('dataset_name', name);
     formData.append('description', description || '');
-    
+
     return this.fetchApi('/datasets/upload', {
       method: 'POST',
       body: formData,

@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // ✅ Define baseUrl HERE
-  // Changed from 127.0.0.1 to the local IP address for physical device testing
-  static const String baseUrl = 'http://10.27.120.190:8000';
+  // Using the PC's actual Wi-Fi IP address for maximum compatibility
+  static const String baseUrl = 'http://10.116.170.190:8000';
 
   static Future<Map<String, dynamic>> register({
     required String name,

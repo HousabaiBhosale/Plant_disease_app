@@ -95,9 +95,11 @@ class ModelVersion(Base):
     __tablename__ = "model_versions"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
-    dataset_ids_used = Column(JSON, nullable=False)
+    version_name = Column(String(255), nullable=False)
+    dataset_ids = Column(JSON, nullable=False)
     accuracy = Column(Float, nullable=True)
-    file_path = Column(String(255), nullable=False)
+    loss = Column(Float, nullable=True)
+    file_path = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=False)
-    training_date = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String(50), default="Training")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -63,7 +63,7 @@ class _ScannerPageState extends State<ScannerPage>
   }
 
   Future<void> _startCam(CameraDescription cam) async {
-    final ctrl = CameraController(cam, ResolutionPreset.high, enableAudio: false);
+    final ctrl = CameraController(cam, ResolutionPreset.medium, enableAudio: false);
     await ctrl.initialize();
     if (!mounted) { await ctrl.dispose(); return; }
     await _cam?.dispose();
@@ -94,7 +94,7 @@ class _ScannerPageState extends State<ScannerPage>
 
   Future<void> _pickGallery() async {
     if (_analyzing || _modelLoading) return;
-    final xf = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 90, maxWidth: 1024);
+    final xf = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 800);
     if (xf == null) return;
     await _runPrediction(File(xf.path));
   }
@@ -117,7 +117,7 @@ class _ScannerPageState extends State<ScannerPage>
               diseaseName: parts[1].replaceAll('_', ' '),
               confidence: conf,
               probGap: 40.0,
-              isUnknown: false,
+              isUnknown: conf < 50.0,
               rawClassName: raw,
             );
           }
@@ -148,7 +148,7 @@ class _ScannerPageState extends State<ScannerPage>
         'image_path': savedPath,
       });
 
-      // Step 4: Log to backend with a strict 2s timeout so it NEVER hangs!
+      // Step 4: Log to backend with a strict 10s timeout so it NEVER hangs!
       String? predictionId;
       try {
         final logged = await ApiService.logLocalPrediction(
@@ -156,7 +156,7 @@ class _ScannerPageState extends State<ScannerPage>
           confidence: result.confidence / 100.0,
           imageName: p.basename(imageFile.path),
           processingTimeMs: sw.elapsedMilliseconds.toDouble(),
-        ).timeout(const Duration(seconds: 2));
+        ).timeout(const Duration(seconds: 10));
         predictionId = logged['prediction_id']?.toString();
         print('✅ Prediction logged: $logged');
       } catch (e) {

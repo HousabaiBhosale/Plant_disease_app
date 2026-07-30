@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocationService {
@@ -13,11 +14,25 @@ class LocationService {
   static const _kLastCountry = 'last_country';
   static const _kLastFormatted = 'last_formatted_location';
 
+  /// Checks if location permission is granted in the OS.
+  static Future<bool> hasOSPermission() async {
+    final status = await Permission.location.status;
+    return status.isGranted || status.isLimited;
+  }
+
+  /// Checks if location features are enabled in app preferences.
   static Future<bool> isLocationEnabled() async {
     final prefs = await SharedPreferences.getInstance();
+    final hasPerm = await hasOSPermission();
+    if (!hasPerm) {
+      // Force app preference to false if OS permission was revoked
+      await prefs.setBool(_kLocationEnabled, false);
+      return false;
+    }
     return prefs.getBool(_kLocationEnabled) ?? false;
   }
 
+  /// Sets the location preference state.
   static Future<void> setLocationEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kLocationEnabled, enabled);
@@ -26,7 +41,7 @@ class LocationService {
     }
   }
 
-  // Reverse geocoding helper using native Flutter geocoding package (Swiggy / Uber style)
+  /// Reverse geocoding helper using native Flutter geocoding package.
   static Future<Map<String, String>> _getAddressFromCoordinates(double lat, double lng) async {
     String city = 'Bagalkot';
     String state = 'Karnataka';
@@ -56,10 +71,11 @@ class LocationService {
     return {'city': city, 'state': state, 'country': country};
   }
 
+  /// Fetches the current location data (either fresh from GPS or cached fallback).
   static Future<Map<String, dynamic>> getCurrentLocationData() async {
     final prefs = await SharedPreferences.getInstance();
-    final enabled = prefs.getBool(_kLocationEnabled) ?? false;
-    if (!enabled) {
+    final hasPerm = await hasOSPermission();
+    if (!hasPerm) {
       return {'location_access': false};
     }
 
@@ -122,6 +138,7 @@ class LocationService {
     }
   }
 
+  /// Request permissions via Geolocator (compatibility helper).
   static Future<bool> requestPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -138,7 +155,11 @@ class LocationService {
     return false;
   }
 
+  /// Forces an update of the current location cached data.
   static Future<void> updateCurrentLocation() async {
+    final hasPerm = await hasOSPermission();
+    if (!hasPerm) return;
+
     try {
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(

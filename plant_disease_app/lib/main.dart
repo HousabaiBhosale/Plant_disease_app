@@ -1,37 +1,43 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
-import 'pages/home_page.dart';
+
 import 'pages/login_page.dart';
-import 'pages/location_permission_page.dart';
-import 'services/notification_service.dart';
-import 'services/location_service.dart';
 import 'providers/auth_provider.dart';
+import 'providers/permission_provider.dart';
+import 'screens/home_screen.dart';
+import 'screens/permission_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/language_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'services/notification_service.dart';
 
 class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
-      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
   }
 }
 
-void main() async {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   if (kDebugMode) {
     HttpOverrides.global = MyHttpOverrides();
   }
-  WidgetsFlutterBinding.ensureInitialized();
 
-  // Language & Notifications
   await LanguageService().init();
   await NotificationService().initialize();
 
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Color(0xFF144D30),
@@ -50,31 +56,40 @@ class PlantGuardApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PermissionProvider()),
         ChangeNotifierProvider(create: (_) => LanguageService()),
       ],
       child: MaterialApp(
-        title: 'PlantGuard',
         debugShowCheckedModeBanner: false,
+        title: 'PlantGuard',
+
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF1E8049),
-            brightness: Brightness.light,
           ),
-          textTheme: GoogleFonts.nunitoSansTextTheme(),
           scaffoldBackgroundColor: const Color(0xFFF4FAF6),
+          textTheme: GoogleFonts.nunitoSansTextTheme(),
           appBarTheme: AppBarTheme(
             backgroundColor: const Color(0xFF144D30),
             foregroundColor: Colors.white,
             elevation: 0,
             titleTextStyle: GoogleFonts.nunito(
-              fontWeight: FontWeight.w800,
               fontSize: 18,
+              fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
         ),
-        home: const AuthWrapper(),
+
+        // App starts from Splash Screen
+        initialRoute: '/splash',
+
+        routes: {
+          '/splash': (context) => const SplashScreen(),
+          '/permission': (context) => const PermissionScreen(),
+          '/home': (context) => const AuthWrapper(),
+        },
       ),
     );
   }
@@ -85,61 +100,22 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    
+    final authProvider = context.watch<AuthProvider>();
+
     if (authProvider.isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF1E8049))),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF1E8049),
+          ),
+        ),
       );
     }
-    
+
     if (authProvider.isAuthenticated) {
-      return const OnboardingWrapper();
+      return const HomeScreen();
     }
-    
+
     return LoginPage();
-  }
-}
-
-class OnboardingWrapper extends StatefulWidget {
-  const OnboardingWrapper({super.key});
-
-  @override
-  State<OnboardingWrapper> createState() => _OnboardingWrapperState();
-}
-
-class _OnboardingWrapperState extends State<OnboardingWrapper> {
-  bool _isLoading = true;
-  bool _showOnboarding = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkOnboarding();
-  }
-
-  Future<void> _checkOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    final done = prefs.getBool('location_onboarding_done') ?? false;
-    final enabled = await LocationService.isLocationEnabled();
-    if (mounted) {
-      setState(() {
-        _showOnboarding = !done && !enabled;
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF1E8049))),
-      );
-    }
-    if (_showOnboarding) {
-      return const LocationPermissionPage();
-    }
-    return const HomePage();
   }
 }

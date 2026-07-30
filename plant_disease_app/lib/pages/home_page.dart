@@ -13,7 +13,6 @@ import 'scanner_page.dart';
 import 'notification_settings_page.dart';
 import 'library_page.dart';
 import 'login_page.dart';
-import 'location_permission_page.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../services/language_service.dart';
@@ -97,7 +96,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin, WidgetsBindingObserver {
   int _idx = 0;
   int _refreshCounter = 0;
   late AnimationController _fabAnim;
@@ -105,17 +104,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fabAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
-    // Step 1 & 2: Swiggy/Uber/Zomato style location check on app startup
-    LocationService.requestPermission().then((granted) {
-      if (granted) {
-        ApiService.saveLocationToBackend();
-      }
-    });
+    // Save location to backend since permission is already granted
+    ApiService.saveLocationToBackend();
   }
 
   @override
-  void dispose() { _fabAnim.dispose(); super.dispose(); }
+  void dispose() { 
+    WidgetsBinding.instance.removeObserver(this);
+    _fabAnim.dispose(); 
+    super.dispose(); 
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Sync location whenever app comes to foreground
+      ApiService.saveLocationToBackend();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -364,9 +372,9 @@ class _HomeTabState extends State<_HomeTab> {
               _QuickActions(onScan: () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const ScannerPage())
               ).then((_) => _loadScans())),
-              const SizedBox(height: 14),
-              const _HomeLocationBanner(),
-              const SizedBox(height: 22),
+              
+              
+            
               _SectionHeader(
                 title: Provider.of<LanguageService>(context).t('recent_scans'),
                 action: Provider.of<LanguageService>(context).t('see_all'),
@@ -623,124 +631,7 @@ class _QAction extends StatelessWidget {
 }
 
 // ── Home Location Access Banner ────────────────────────────────
-class _HomeLocationBanner extends StatefulWidget {
-  const _HomeLocationBanner();
-  @override
-  State<_HomeLocationBanner> createState() => _HomeLocationBannerState();
-}
 
-class _HomeLocationBannerState extends State<_HomeLocationBanner> {
-  bool _enabled = false;
-  String _locationText = 'Checking GPS...';
-
-  @override
-  void initState() {
-    super.initState();
-    _checkStatus();
-  }
-
-  Future<void> _checkStatus() async {
-    final enabled = await LocationService.isLocationEnabled();
-    String locStr = 'Not Enabled';
-    if (enabled) {
-      final data = await LocationService.getCurrentLocationData();
-      locStr = data['location']?.toString() ?? 'GPS Active';
-    }
-    if (mounted) {
-      setState(() {
-        _enabled = enabled;
-        _locationText = locStr;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _enabled ? () async {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('📍 Updating GPS coordinates...'), duration: Duration(seconds: 1)));
-        }
-        await LocationService.updateCurrentLocation();
-        await _checkStatus();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Location updated: $_locationText')));
-        }
-      } : null,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _enabled ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _enabled ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A), width: 1.5),
-          boxShadow: [BoxShadow(color: AppColors.g900.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3))],
-        ),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _enabled ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(
-                children: [
-                  Text(_enabled ? '📍 GPS Field Tagging Active' : '📍 Allow Location Access',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: _enabled ? const Color(0xFF065F46) : const Color(0xFF92400E))),
-                  if (_enabled) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text('✓ Connected', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 11, color: const Color(0xFF047857))),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(_enabled ? 'Location: $_locationText (Tap to refresh)' : 'Enable live GPS tagging for real-world field monitoring & admin dashboard tracking.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: _enabled ? const Color(0xFF047857) : const Color(0xFFB45309))),
-            ]),
-          ),
-          const SizedBox(width: 10),
-          Switch.adaptive(
-            value: _enabled,
-            activeColor: const Color(0xFF10B981),
-            onChanged: (val) async {
-              if (val) {
-                LocationPermission permission = await Geolocator.checkPermission();
-                if (permission == LocationPermission.denied) {
-                  permission = await Geolocator.requestPermission();
-                }
-                if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-                  await LocationService.setLocationEnabled(true);
-                } else if (permission == LocationPermission.deniedForever) {
-                  await Geolocator.openAppSettings();
-                } else {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Location permission required for GPS field tagging')),
-                    );
-                  }
-                }
-              } else {
-                await LocationService.setLocationEnabled(false);
-              }
-              await _checkStatus();
-            },
-          ),
-        ]),
-      ),
-    );
-  }
-}
 
 // â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SectionHeader extends StatelessWidget {

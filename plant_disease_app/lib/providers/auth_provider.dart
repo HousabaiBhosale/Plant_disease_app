@@ -11,6 +11,13 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   Map<String, dynamic>? get user => _user;
   String? get error => _error;
+
+  void clearError() {
+    if (_error != null) {
+      _error = null;
+      notifyListeners();
+    }
+  }
   
   AuthProvider() {
     checkAuthStatus();
@@ -50,6 +57,8 @@ class AuthProvider extends ChangeNotifier {
         _error = 'Invalid email or password. Please try again.';
       } else if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
         _error = 'Cannot connect to server. Make sure backend is running.';
+      } else if (e.toString().contains('TimeoutException')) {
+        _error = 'Connection timed out. Check if backend IP is correct in auth_service.dart.';
       } else if (e.toString().contains('Exception: ')) {
         _error = e.toString().replaceAll('Exception: ', '');
       } else {
@@ -80,6 +89,8 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       if (e.toString().contains('SocketException') || e.toString().contains('Network')) {
         _error = 'Cannot connect to server. Make sure backend is running.';
+      } else if (e.toString().contains('TimeoutException')) {
+        _error = 'Connection timed out. Check if backend IP is correct in auth_service.dart.';
       } else if (e.toString().contains('Exception: ')) {
         _error = e.toString().replaceAll('Exception: ', '');
       } else {

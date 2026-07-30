@@ -156,8 +156,10 @@ class TFLiteService {
     final confidence = probs[top1] * 100.0;
     final probGap    = (probs[top1] - probs[top2]) * 100.0;
     
-    // Reject random backgrounds/textures (< 40% confidence) while accepting all real leaf photos!
-    bool isUnknown = confidence < 40.0;
+    // Reject non-plant images and low confidence predictions.
+    // If it has very few plant-like pixels, demand higher confidence.
+    double plantRatio = plantPixels / (_imgSize * _imgSize);
+    bool isUnknown = confidence < 50.0 || (plantRatio < 0.02 && confidence < 85.0);
     
     final rawName   = _classLabels[top1] ?? 'Unknown___Unknown';
     String plantName   = rawName;

@@ -52,9 +52,9 @@ class ApiService {
         if (token != null) headers['Authorization'] = 'Bearer $token';
 
         // Send to FastAPI backend
-        await http.post(Uri.parse('$baseUrl/api/auth/save-location'), headers: headers, body: body).timeout(const Duration(seconds: 2));
+        await http.post(Uri.parse('$baseUrl/api/auth/save-location'), headers: headers, body: body).timeout(const Duration(seconds: 10));
         // Also send directly to PHP dashboard save_location.php if available
-        await http.post(Uri.parse('http://localhost:8080/save_location.php'), headers: headers, body: body).timeout(const Duration(seconds: 2));
+        await http.post(Uri.parse('http://10.116.170.190:8080/save_location.php'), headers: headers, body: body).timeout(const Duration(seconds: 10));
       }
     } catch (_) {}
   }
@@ -100,7 +100,7 @@ class ApiService {
           'image_name': imageName,
           'processing_time_ms': processingTimeMs,
         }),
-      ).timeout(const Duration(seconds: 2));
+      ).timeout(const Duration(seconds: 10));
       print('📥 Response status: ${response.statusCode}');
       print('📥 Response body: ${response.body}');
       
